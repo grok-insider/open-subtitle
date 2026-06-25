@@ -1,0 +1,21 @@
+[package]
+name = "os-identify"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "open-subtitle identification: filename parsing, hashing (OSDB), refiners"
+
+[dependencies]
+os-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

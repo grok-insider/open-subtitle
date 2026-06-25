@@ -2,7 +2,7 @@
 /target
 **/*.rs.bk
 *.pdb
-Cargo.lock        # workspace is a set of libs+bins; lock is committed only at v1 (see CONTRIBUTING)
+# Cargo.lock IS committed (this workspace ships the `ost` binary).
 
 # Editor / OS
 .DS_Store
