@@ -1,0 +1,19 @@
+[package]
+name = "os-providers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "open-subtitle provider adapters (OpenSubtitles.org/.com, SubDL, …)"
+
+[dependencies]
+os-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+async-trait = { workspace = true }
+urlencoding = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "os-process"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "open-subtitle post-processing: decompress, encoding->UTF-8, format, HI removal"
+
+[dependencies]
+os-core = { workspace = true }
+encoding_rs = { workspace = true }
+chardetng = { workspace = true }
+flate2 = { workspace = true }
+zip = { workspace = true }
+
+[lints]
+workspace = true
