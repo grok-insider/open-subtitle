@@ -47,7 +47,12 @@ jobs:
         with:
           command: release-pr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer a PAT/App token (RELEASE_PLZ_TOKEN) so the release PR triggers
+          # CI like a human PR — required when `master` has required status checks
+          # (a GITHUB_TOKEN-opened PR doesn't auto-run workflows). Falls back to
+          # GITHUB_TOKEN when the secret isn't set (then approve the PR's CI run
+          # manually before merging).
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
 
   release-plz-release:
     name: release-plz release
@@ -70,7 +75,7 @@ jobs:
         with:
           command: release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
 
   # Parse the just-created release's tag/version once (jq on Linux), so the
   # cross-platform matrix (incl. Windows) doesn't need jq.

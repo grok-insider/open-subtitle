@@ -1,5 +1,9 @@
 # open-subtitle
 
+[![CI](https://github.com/0xfell/open-subtitle/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfell/open-subtitle/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/0xfell/open-subtitle?sort=semver)](https://github.com/0xfell/open-subtitle/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **One subtitle engine for everything.** Find, score, download, normalize, sync,
 translate, and transcribe subtitles for **movies, series, and anime** — from
 **any app, on any platform, in any language**, with **no API key required** for
