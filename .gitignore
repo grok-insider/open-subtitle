@@ -1,0 +1,28 @@
+# Rust
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock        # workspace is a set of libs+bins; lock is committed only at v1 (see CONTRIBUTING)
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local secrets / runtime state (NEVER commit)
+config.toml
+*.local.toml
+/.cache/
+throttle.json
+
+# Test/scratch subtitle artifacts
+*.srt
+*.ass
+*.ssa
+*.vtt
+*.sub
+!tests/**/fixtures/**    # keep checked-in test fixtures
+
+# Research clones (kept out of the repo on purpose)
+/tmp-research/
