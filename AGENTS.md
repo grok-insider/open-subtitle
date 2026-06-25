@@ -44,17 +44,18 @@ member entry in the root `Cargo.toml`. Crate prefix is `os-`.
 | `crates/os-translate` | Translation backends (local-first, LLM optional). | `Translator` |
 | `crates/os-transcribe` | Speech-to-text fallback (Whisper). | `Transcriber` |
 | `crates/os-engine` | Use-cases + `Engine` composition + `Throttler`. **Depends only on `os-core`.** | — (consumes ports) |
-| `crates/os-cli` | The `ost` binary: args, composition root, `--json`, TUI. | — (wires adapters) |
-| `crates/os-daemon` | The `ostd` HTTP/JSON (+ SSE) server. | — (wires adapters) |
-| `crates/os-ffi` | C-ABI (`libopensubtitle`) + WASM bindings. | — (wires adapters) |
-| `crates/os-mpv` | mpv sidecar contract + thin Lua plugin. | — |
+| `crates/os-compose` | The shared **composition root** (`build_engine(&Config) -> Engine`) used by every frontend. The one place (besides binaries) allowed to name concrete adapters. | — (wires adapters) |
+| `crates/os-cli` | The `ost` binary: args, `--json` sidecar, subcommands (`init/config/providers/identify/search/get/auto/sync/translate`). | — (uses `os-compose`) |
+| `crates/os-daemon` | The `ostd` binary: HTTP/JSON server (`/capabilities`, `/identify`/`/search`/`/get`, the **OpenSubtitles-compatible** surface, Sonarr/Radarr **webhooks**). | — (uses `os-compose`) |
+| `crates/os-ffi` | C-ABI `libopensubtitle` (cdylib/staticlib) + hand-written `include/opensubtitle.h`; WASM later. | — (uses `os-compose`) |
+| `crates/os-mpv` | **Not a cargo crate** — the mpv Lua plugin asset (`open-subtitle.lua`) that drives `ost --json`. Bundled into the package + release archives. | — |
 
 ### The dependency rule (do not break this)
 
 ```
-os-cli/os-daemon/os-ffi/os-mpv ──▶ os-engine ──▶ os-core ◀── every adapter crate
-        │                                                        ▲
-        └───────────────────── wires ─────────────────────────────┘
+os-cli / os-daemon / os-ffi ──▶ os-compose ──▶ (adapters)
+        │                            │
+        └────────▶ os-engine ──▶ os-core ◀── every adapter crate
 ```
 
 - `os-core` depends on nothing internal.
@@ -62,8 +63,10 @@ os-cli/os-daemon/os-ffi/os-mpv ──▶ os-engine ──▶ os-core ◀── e
   If you want to, you need a **new port** in `os-core` instead.
 - Adapter crates depend on `os-core` (+ their own I/O deps). They never depend on
   each other or on `os-engine`.
-- `os-cli`/`os-daemon`/`os-ffi`/`os-mpv` are the **only** crates allowed to name
-  concrete adapters; they assemble the `Engine` in their `compose.rs`.
+- **`os-compose`** is the single shared composition root: it names the concrete
+  adapters and builds the `Engine` from `Config`. The frontends (`os-cli`,
+  `os-daemon`, `os-ffi`) call `os_compose::build_engine` rather than wiring
+  adapters themselves — so they all behave identically.
 
 ## Architecture in one screen
 
@@ -73,11 +76,11 @@ os-cli/os-daemon/os-ffi/os-mpv ──▶ os-engine ──▶ os-core ◀── e
 2. **Adapters** implement a port each, mapping concrete errors → `CoreError` at
    the boundary.
 3. **`Engine`** (`os-engine`) holds `Arc<dyn Port>` fields and implements the
-   use-cases (`identify`, `search`, `download_best`, `fallback`, `auto`). Built by
-   `EngineBuilder`; unset optional ports disable their features. A `Throttler`
-   guards provider calls.
-4. **Composition roots** (each frontend's `compose.rs`) read `Config` and choose
-   which adapters to instantiate.
+   use-cases (`identify`, `search`, `download_best`, `fetch_candidate`, `auto`,
+   `sync_to`, `translate_to`). Built by `EngineBuilder`; unset optional ports
+   disable their features. A `Throttler` guards provider calls.
+4. **`os-compose::build_engine(&Config)`** reads config and instantiates the
+   enabled adapters into the `Engine`. Every frontend calls it.
 
 The matching/scoring model and provider catalog are specified in
 `docs/ARCHITECTURE.md` (§5, §7) and `docs/RESEARCH.md` (§2, §8).
@@ -123,7 +126,7 @@ Example: add a `Foobar` subtitle source.
    variants (use `RateLimited`/`DownloadLimit`/`AuthRequired` correctly).
 2. Use the shared HTTP client + UA pool; don't hand-roll a session.
 3. Export it from `os-providers`'s `lib.rs`.
-4. In each frontend's `compose.rs`, select it when its config block is enabled
+4. In **`os-compose::build_engine`**, select it when its config block is enabled
    (default **disabled** if it needs a key).
 5. Add config keys to `os-config`.
 6. Tests (fixture/mock) + `cargo clippy`/`fmt`. **No other crate changes** —
@@ -136,22 +139,45 @@ Adding a new *capability* (not just a backend) means a new port trait in
 
 ```bash
 cargo build                                   # debug build
-cargo run -p os-cli -- search "frieren" -l en # run the CLI
-cargo run -p os-cli -- get <file> -l en --best --json
-cargo test --workspace                        # all tests
+cargo run -p os-cli -- search "frieren" -l en # run the CLI (ost)
+cargo run -p os-cli -- get <file> -l en --json
+cargo run -p os-daemon                         # run the daemon (ostd) on 127.0.0.1:4110
+cargo test --workspace                        # all tests (hermetic)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
+nix build .#open-subtitle -L                   # the packaged build (ost+ostd+lib+plugin)
+nix flake check --no-build                     # validate flake outputs
 ```
 
 Smoke-test without touching real config by setting a throwaway `XDG_CONFIG_HOME`.
 
+## Releases, CI & branch protection
+
+- **`master` is protected:** changes land via **PR**, and the **`fmt + clippy +
+  test`** check must pass (admins included — no direct pushes). The master-only
+  `nix build + cachix push` job is *not* a required check (it's skipped on PRs).
+- **CI** (`.github/workflows/ci.yml`): fmt + clippy + hermetic tests on every PR;
+  on master/tags it also `nix build`s and pushes the closure to the `0xfell`
+  cachix cache.
+- **Releases** (`.github/workflows/release.yml` + `release-plz.toml`):
+  **release-plz** keeps a "release PR" updated (single workspace version driven by
+  `os-cli`, all 12 other crates folded into the changelog; `git_only` + `publish =
+  false`, no crates.io). Merging it tags `vX.Y.Z`, creates the GitHub Release, and
+  a **cross-platform matrix** attaches prebuilt `ost`/`ostd`/`libopensubtitle` +
+  the mpv plugin for Linux (x86_64/aarch64 static musl), macOS (x86_64/arm64), and
+  Windows.
+- **`RELEASE_PLZ_TOKEN`** (a PAT/App secret) lets the release PR run CI under the
+  required-check rule; without it, approve the release PR's CI run manually.
+- TLS is **rustls + ring** → no cmake/clang in the build path (lighter than
+  open-media's aws-lc).
+
 ## Research material
 
-The upstream projects analyzed for this design were cloned to `/tmp/ost-research`
-during planning (subliminal, bazarr, subg, uosc, mpv-subversive, subtool,
-ffsubsync, sublarr, animeSubs_dl). They are **not** part of this repo — re-clone
-if you need to re-read them. `docs/RESEARCH.md` captures the distilled findings
-with the concrete algorithms (OSDB hash, scoring weights, throttle map).
+The upstream projects analyzed for this design (subliminal, bazarr, subg, uosc,
+mpv-subversive, subtool, ffsubsync, sublarr, animeSubs_dl) were cloned during
+planning and are **not** part of this repo — re-clone to `/tmp` if you need to
+re-read them. `docs/RESEARCH.md` captures the distilled findings with the concrete
+algorithms (OSDB hash, scoring weights, throttle map).
 
 ## Roadmap & planning
 
@@ -160,8 +186,10 @@ with the concrete algorithms (OSDB hash, scoring weights, throttle map).
   is.
 - `docs/PROTOCOL.md` — the integration contract (daemon/FFI/WASM JSON shapes + the
   OpenSubtitles-compatible surface). Descriptive until frozen at `v0.5`.
-- `docs/PLAN.md` — the phased build plan + acceptance criteria.
-- `docs/ROADMAP.md` — version milestones and the feature matrix.
+- `docs/PLAN.md` — the phased build plan + per-phase status (what's `[x]`/`[~]`).
+- `docs/ROADMAP.md` — version milestones, the delivered snapshot, feature matrix.
+- `continue-plan.md` — the **actionable backlog** (what's left, by theme + a
+  suggested next-session order). Start here when picking up work.
 - `docs/RESEARCH.md` — prior-art analysis the design is built on.
 - `docs/ARCHITECTURE.md` — the full design.
 - `future-features.md` — backlog / nice-to-haves.
