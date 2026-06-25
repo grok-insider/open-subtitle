@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensubtitle.dev/schemas/subtitle-candidate.schema.json",
+  "title": "SubtitleCandidate",
+  "description": "A search result (metadata only). See docs/PROTOCOL.md §1.",
+  "type": "object",
+  "required": ["provider", "id", "language", "hi", "forced", "matched_by_hash", "hints", "score", "score_without_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "provider": { "type": "string" },
+    "id": { "type": "string", "description": "Provider-specific id used to fetch." },
+    "language": { "$ref": "https://opensubtitle.dev/schemas/language.schema.json" },
+    "release": { "type": ["string", "null"] },
+    "hi": { "type": "boolean", "description": "Hearing-impaired variant." },
+    "forced": { "type": "boolean" },
+    "format": { "type": ["string", "null"] },
+    "download_url": { "type": ["string", "null"] },
+    "matched_by_hash": { "type": "boolean" },
+    "hints": {
+      "type": "object",
+      "description": "Provider-specific structured hints used by matching (imdb, season, episode, downloads, ...).",
+      "additionalProperties": { "type": "string" }
+    },
+    "score": { "type": "integer", "description": "Engine match score." },
+    "score_without_hash": { "type": "integer", "description": "Tie-breaker score excluding hash." }
+  }
+}

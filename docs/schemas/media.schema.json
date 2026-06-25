@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensubtitle.dev/schemas/media.schema.json",
+  "title": "Media",
+  "description": "The media subtitles are being found for. See docs/PROTOCOL.md §1.",
+  "type": "object",
+  "required": ["kind", "ids", "title", "alternative_titles", "episodes", "release", "hashes"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "type": "string", "enum": ["movie", "series", "anime"] },
+    "ids": { "$ref": "#/$defs/IdSet" },
+    "title": { "type": "string" },
+    "original_title": { "type": ["string", "null"] },
+    "alternative_titles": { "type": "array", "items": { "type": "string" } },
+    "year": { "type": ["integer", "null"] },
+    "season": { "type": ["integer", "null"], "minimum": 0 },
+    "episodes": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+    "episode_title": { "type": ["string", "null"] },
+    "release": { "$ref": "#/$defs/ReleaseInfo" },
+    "hashes": {
+      "type": "object",
+      "description": "Per-scheme content hashes, keyed by hasher name (e.g. osdb).",
+      "additionalProperties": { "type": "string" }
+    },
+    "size": { "type": ["integer", "null"], "minimum": 0 },
+    "name": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "IdSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "imdb": { "type": ["string", "null"] },
+        "tmdb": { "type": ["integer", "null"] },
+        "tvdb": { "type": ["integer", "null"] },
+        "series_imdb": { "type": ["string", "null"] },
+        "series_tmdb": { "type": ["integer", "null"] },
+        "series_tvdb": { "type": ["integer", "null"] },
+        "anilist": { "type": ["integer", "null"] },
+        "anidb_episode": { "type": ["integer", "null"] },
+        "mal": { "type": ["integer", "null"] }
+      }
+    },
+    "ReleaseInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "release_group": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "resolution": { "type": ["string", "null"] },
+        "video_codec": { "type": ["string", "null"] },
+        "audio_codec": { "type": ["string", "null"] },
+        "streaming_service": { "type": ["string", "null"] },
+        "edition": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

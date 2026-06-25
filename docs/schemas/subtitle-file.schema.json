@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensubtitle.dev/schemas/subtitle-file.schema.json",
+  "title": "SubtitleFile",
+  "description": "A delivered, decoded, post-processed subtitle. See docs/PROTOCOL.md §1.",
+  "type": "object",
+  "required": ["language", "format", "text", "provider", "hi", "forced"],
+  "additionalProperties": false,
+  "properties": {
+    "language": { "$ref": "https://opensubtitle.dev/schemas/language.schema.json" },
+    "format": { "type": "string", "description": "Delivered format extension, e.g. srt, ass, vtt." },
+    "text": { "type": "string", "description": "UTF-8 subtitle content." },
+    "provider": { "type": "string" },
+    "release": { "type": ["string", "null"] },
+    "hi": { "type": "boolean" },
+    "forced": { "type": "boolean" }
+  }
+}

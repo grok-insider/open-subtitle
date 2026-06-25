@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensubtitle.dev/schemas/language.schema.json",
+  "title": "Language",
+  "description": "A subtitle language. See docs/PROTOCOL.md §1.",
+  "type": "object",
+  "required": ["alpha3", "hearing_impaired", "forced"],
+  "additionalProperties": false,
+  "properties": {
+    "alpha3": {
+      "type": "string",
+      "description": "ISO 639-3 / 639-2T code, e.g. eng, spa, jpn.",
+      "pattern": "^[a-z]{3}$"
+    },
+    "region": {
+      "type": ["string", "null"],
+      "description": "Optional region/country subtag, e.g. BR."
+    },
+    "hearing_impaired": { "type": "boolean" },
+    "forced": { "type": "boolean" }
+  }
+}

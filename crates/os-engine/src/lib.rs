@@ -132,6 +132,35 @@ impl Engine {
         Ok(all)
     }
 
+    /// Fetch + post-process a single candidate (used by the OpenSubtitles-
+    /// compatible surface, where a client selected one result by id).
+    pub async fn fetch_candidate(
+        &self,
+        candidate: &SubtitleCandidate,
+        opts: &ProcessOpts,
+    ) -> CoreResult<SubtitleFile> {
+        let provider = self
+            .providers
+            .iter()
+            .find(|p| p.name() == candidate.provider.as_str())
+            .ok_or_else(|| {
+                CoreError::Provider(format!("unknown provider: {}", candidate.provider))
+            })?;
+        let raw = match provider.fetch(candidate).await {
+            Ok(r) => {
+                self.throttler.record_success(provider.name());
+                r
+            }
+            Err(e) => {
+                self.throttler.record_error(provider.name(), &e);
+                return Err(e);
+            }
+        };
+        let mut o = opts.clone();
+        o.language = Some(candidate.language.clone());
+        self.post.process(raw, &o)
+    }
+
     /// Download the best subtitle per requested language (in preference order),
     /// post-processed. Falls back to the next candidate on fetch/parse failure.
     pub async fn download_best(
@@ -479,6 +508,35 @@ mod tests {
         let res = e.search(&media, &[en]).await.unwrap();
         // The good provider still returns a result.
         assert_eq!(res.len(), 1);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn fetch_candidate_processes_one() {
+        let e = engine(vec![Arc::new(FakeProvider {
+            name: "good".into(),
+            good: true,
+        })]);
+        let mut c = SubtitleCandidate::new("good", "1", Language::parse("en").unwrap());
+        c.release = Some("The.Show.S01E02.1080p".into());
+        let file = e
+            .fetch_candidate(&c, &ProcessOpts::default())
+            .await
+            .unwrap();
+        assert!(file.text.contains("Hi"));
+        assert_eq!(file.provider, "good");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn fetch_candidate_unknown_provider_errors() {
+        let e = engine(vec![Arc::new(FakeProvider {
+            name: "good".into(),
+            good: true,
+        })]);
+        let c = SubtitleCandidate::new("nope", "1", Language::parse("en").unwrap());
+        assert!(e
+            .fetch_candidate(&c, &ProcessOpts::default())
+            .await
+            .is_err());
     }
 
     #[tokio::test(flavor = "current_thread")]

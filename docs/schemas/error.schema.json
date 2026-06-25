@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensubtitle.dev/schemas/error.schema.json",
+  "title": "ErrorEnvelope",
+  "description": "The typed error envelope returned by ostd. See docs/PROTOCOL.md §6.",
+  "type": "object",
+  "required": ["error"],
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": ["kind", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "config", "network", "rate_limited", "download_limit", "auth_required",
+            "not_found", "throttled", "parse", "unsupported", "io", "provider"
+          ]
+        },
+        "message": { "type": "string" },
+        "retry_after_secs": {
+          "type": ["integer", "null"],
+          "description": "Present for rate_limited; seconds to wait before retrying."
+        }
+      }
+    }
+  }
+}
