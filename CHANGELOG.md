@@ -7,6 +7,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`v0.3` "the contract" — first slice (the wedge).**
+  - **OpenSubtitles.com-compatible surface on `ostd`** so existing OpenSubtitles
+    clients can be repointed at the local engine: `GET /osc/api/v1/subtitles`,
+    `POST /osc/api/v1/download`, `GET /osc/file/<id>`, backed by a candidate
+    registry. Verified end-to-end (search → download → SRT served locally).
+  - `os-engine::Engine::fetch_candidate` — fetch + post-process a single
+    candidate by id (used by the OSc `file` endpoint).
+  - `ostd` **`GET /capabilities`** (providers, features, version, default langs),
+    a **typed error envelope** (`{ error: { kind, message, retry_after_secs? } }`)
+    with proper HTTP status codes, and **`/v1` path aliases**.
+  - **JSON Schemas** under `docs/schemas/` for `Language`, `Media`,
+    `SubtitleCandidate`, `SubtitleFile`, and the error envelope (draft 2020-12).
+  - 57 tests pass (incl. pure OSc-mapping + `fetch_candidate` tests); clippy clean.
 - **Long-term strategy + protocol direction (docs).**
   - `docs/STRATEGY.md` — commits the project to becoming the embeddable subtitle
     *backend standard* (stable protocol + provider SDK), with the
