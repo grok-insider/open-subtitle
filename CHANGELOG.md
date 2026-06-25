@@ -7,6 +7,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Release & distribution pipeline (Nix/Cachix + GitHub Actions + release-plz).**
+  - `flake.nix` — builds `ost` + `ostd` + `libopensubtitle` (+ `opensubtitle.h`)
+    and bundles the mpv plugin; reuses the `0xfell` cachix cache; ships a Home
+    Manager module (`programs.open-subtitle` with `mpv.enable` and an optional
+    `daemon.enable` systemd user service) and a dev shell. (ring → no
+    cmake/clang needed.)
+  - `.github/workflows/ci.yml` — fmt + clippy + hermetic tests, plus a Nix build
+    that pushes the x86_64-linux closure to cachix.
+  - `.github/workflows/release.yml` — release-plz (versioning + changelog + tag +
+    GitHub Release), then a **cross-platform matrix** that attaches prebuilt
+    archives for Linux (x86_64/aarch64 static musl), macOS (x86_64/arm64), and
+    Windows (x86_64) — each with `ost`, `ostd`, `libopensubtitle` (+ header), and
+    the mpv plugin. So users install **without compiling**.
+  - `release-plz.toml` — single workspace version driven by `os-cli`, folding all
+    12 other crates into the changelog; `git_only` (no crates.io).
+  - `crates/os-ffi/include/opensubtitle.h` — the C header shipped with the lib.
+  - Validated locally: `nix build`/`nix flake check` green, `actionlint` clean.
 - **`v0.4` automation MVP — Sonarr/Radarr webhooks.** `ostd` now accepts
   Sonarr/Radarr "On Import" webhooks (`POST /webhook`, `/webhook/sonarr`,
   `/webhook/radarr`) and fetches subtitles for the imported file automatically,

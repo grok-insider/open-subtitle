@@ -129,6 +129,35 @@ standard), and [docs/PROTOCOL.md](docs/PROTOCOL.md) for the integration contract
 | mpv plugin | `os-mpv` | a thin **Lua** client driving the binary (sidecar/JSON) |
 | Rust library | `os-engine` | other Rust apps (e.g. **open-media**) |
 
+## Install
+
+**Prebuilt binaries (no compiling)** — each GitHub Release ships `ost`, `ostd`,
+`libopensubtitle` (+ header), and the mpv plugin for Linux (x86_64/aarch64,
+static musl), macOS (x86_64/arm64), and Windows (x86_64). Download the archive for
+your platform from [Releases](https://github.com/0xfell/open-subtitle/releases),
+extract, and put `ost`/`ostd` on your `PATH`.
+
+**Nix / NixOS** — the flake builds `ost` + `ostd` + the library, with prebuilt
+closures on the `0xfell` cachix cache (so you don't compile):
+
+```nix
+# flake.nix inputs
+inputs.open-subtitle.url = "github:0xfell/open-subtitle";
+
+# Home Manager
+imports = [ inputs.open-subtitle.homeManagerModules.default ];
+programs.open-subtitle = {
+  enable = true;
+  mpv.enable = true;         # deploy the mpv plugin
+  # daemon.enable = true;    # optional: run ostd as a user service
+};
+```
+
+Or ad hoc: `nix run github:0xfell/open-subtitle -- get "Interstellar 2014" -l en`.
+
+**From source** — `cargo build --release` (Rust ≥ 1.80); binaries at
+`target/release/{ost,ostd}`.
+
 ## Configuration (planned)
 
 A single TOML file at `~/.config/open-subtitle/config.toml` (respects

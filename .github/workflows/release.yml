@@ -1,0 +1,233 @@
+name: Release
+
+# Automated versioning + GitHub Releases via release-plz (config: release-plz.toml),
+# then cross-platform prebuilt artifacts attached to the Release so users install
+# without compiling.
+#
+# Flow on every push to master:
+#   * release-plz-pr      — opens/updates the "release PR" (bumps the single
+#                           [workspace.package].version + Cargo.lock, regenerates
+#                           CHANGELOG.md from Conventional Commits).
+#   * release-plz-release — when that PR is merged, creates the `vX.Y.Z` tag +
+#                           GitHub Release from the changelog.
+#   * resolve / artifacts — build ost + ostd + libopensubtitle (+ mpv plugin) for
+#                           Linux (x86_64/aarch64 musl-static), macOS
+#                           (x86_64/arm64), and Windows (x86_64), and attach them.
+#
+# Cachix is handled in ci.yml's `build` job (same master push) — it pushes the
+# x86_64-linux closure to 0xfell.cachix.org. Nothing is published to crates.io
+# (see `git_only` in release-plz.toml).
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  release-plz-pr:
+    name: release-plz PR
+    if: github.repository_owner == '0xfell'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run release-plz (release-pr)
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-plz-release:
+    name: release-plz release
+    if: github.repository_owner == '0xfell'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+      releases: ${{ steps.release-plz.outputs.releases }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run release-plz (release)
+        id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Parse the just-created release's tag/version once (jq on Linux), so the
+  # cross-platform matrix (incl. Windows) doesn't need jq.
+  resolve:
+    name: resolve release tag
+    needs: release-plz-release
+    if: needs.release-plz-release.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.r.outputs.tag }}
+      version: ${{ steps.r.outputs.version }}
+    steps:
+      - id: r
+        env:
+          RELEASES: ${{ needs.release-plz-release.outputs.releases }}
+        run: |
+          set -euo pipefail
+          echo "tag=$(echo "$RELEASES" | jq -r '.[0].tag')" >> "$GITHUB_OUTPUT"
+          echo "version=$(echo "$RELEASES" | jq -r '.[0].version')" >> "$GITHUB_OUTPUT"
+
+  # Build the binaries + FFI library + bundle the mpv plugin for each target, and
+  # attach an archive (+ sha256) to the Release. Independent per target: a single
+  # platform failing leaves the others (and the tag/Release/changelog/cachix)
+  # intact, and can be re-run.
+  artifacts:
+    name: ${{ matrix.target }}
+    needs: [release-plz-release, resolve]
+    if: needs.release-plz-release.outputs.releases_created == 'true'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, cross: zig }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl, cross: zig }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, cross: "" }
+          - { os: macos-14, target: aarch64-apple-darwin, cross: "" }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, cross: "" }
+    runs-on: ${{ matrix.os }}
+    env:
+      TARGET: ${{ matrix.target }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Checkout the released tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # ring on windows-msvc assembles its x86_64 asm with nasm.
+      - name: Install nasm (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+
+      # zig supplies the cross C toolchain + musl libc for the Linux static builds.
+      - name: Install zig
+        if: matrix.cross == 'zig'
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - name: Install cargo-zigbuild
+        if: matrix.cross == 'zig'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+
+      - name: Build (zigbuild static)
+        if: matrix.cross == 'zig'
+        run: cargo zigbuild --release -p os-cli -p os-daemon -p os-ffi --target "$TARGET"
+
+      - name: Build (native)
+        if: matrix.cross != 'zig'
+        run: cargo build --release -p os-cli -p os-daemon -p os-ffi --target ${{ matrix.target }}
+
+      - name: Verify Linux binaries are static
+        if: matrix.cross == 'zig'
+        run: |
+          set -euo pipefail
+          for bin in ost ostd; do
+            f="target/$TARGET/release/$bin"
+            file "$f"
+            if ldd "$f" 2>&1 | grep -qiE 'libc\.so|GLIBC'; then
+              echo "::error::$bin is dynamically linked against glibc"; exit 1
+            fi
+          done
+
+      - name: Package + upload (unix)
+        if: runner.os != 'Windows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          src="target/$TARGET/release"
+          stage="open-subtitle-$VERSION-$TARGET"
+          mkdir -p "$stage"
+          cp "$src/ost" "$src/ostd" "$stage/"
+          cp "$src"/libopensubtitle.so "$stage/" 2>/dev/null || true
+          cp "$src"/libopensubtitle.dylib "$stage/" 2>/dev/null || true
+          cp "$src"/libopensubtitle.a "$stage/" 2>/dev/null || true
+          cp crates/os-ffi/include/opensubtitle.h "$stage/"
+          cp crates/os-mpv/open-subtitle.lua "$stage/"
+          cat > "$stage/INSTALL.txt" <<EOF
+          open-subtitle $VERSION ($TARGET)
+
+          Binaries:
+            ost   - CLI: ost get "<title>" -l en   (keyless by default)
+            ostd  - HTTP/JSON daemon + OpenSubtitles-compatible API + Sonarr/Radarr webhooks
+
+          Install: put ost (and ostd) on your PATH.
+          mpv plugin: copy open-subtitle.lua into ~/.config/mpv/scripts/ and keep ost on PATH.
+          C library: libopensubtitle.* + opensubtitle.h (JSON in/out).
+
+          Docs: https://github.com/0xfell/open-subtitle
+          EOF
+          archive="$stage.tar.gz"
+          tar -czf "$archive" "$stage"
+          shasum -a 256 "$archive" > "$archive.sha256" 2>/dev/null || sha256sum "$archive" > "$archive.sha256"
+          gh release upload "$TAG" "$archive" "$archive.sha256" --clobber
+
+      - name: Package + upload (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $src = "target/$env:TARGET/release"
+          $stage = "open-subtitle-$env:VERSION-$env:TARGET"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "$src/ost.exe","$src/ostd.exe" $stage
+          foreach ($f in "opensubtitle.dll","opensubtitle.dll.lib","opensubtitle.lib") {
+            if (Test-Path "$src/$f") { Copy-Item "$src/$f" $stage }
+          }
+          Copy-Item "crates/os-ffi/include/opensubtitle.h" $stage
+          Copy-Item "crates/os-mpv/open-subtitle.lua" $stage
+          @"
+          open-subtitle $env:VERSION ($env:TARGET)
+
+          Binaries: ost.exe (CLI), ostd.exe (daemon).
+          Install: put ost.exe (and ostd.exe) on your PATH.
+          mpv plugin: copy open-subtitle.lua into %APPDATA%\mpv\scripts\ and keep ost on PATH.
+          C library: opensubtitle.dll + opensubtitle.h (JSON in/out).
+
+          Docs: https://github.com/0xfell/open-subtitle
+          "@ | Out-File -FilePath "$stage/INSTALL.txt" -Encoding ascii
+          $archive = "$stage.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $archive -Force
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          "$hash  $archive" | Out-File -FilePath "$archive.sha256" -Encoding ascii
+          gh release upload "$env:TAG" "$archive" "$archive.sha256" --clobber
