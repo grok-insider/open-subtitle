@@ -4,6 +4,10 @@
 *.pdb
 # Cargo.lock IS committed (this workspace ships the `ost` binary).
 
+# Nix build symlinks
+/result
+/result-*
+
 # Editor / OS
 .DS_Store
 *.swp

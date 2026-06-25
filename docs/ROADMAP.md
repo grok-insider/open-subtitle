@@ -45,11 +45,13 @@ Own the recurring use case without rebuilding a UI.
 - Caching + resilience hardening.
 
 ### `v0.5` — "Stable & packaged" (freeze `v1`)
-- **Freeze `v1`**: the `/v1` HTTP shapes, the C-ABI symbols, and the core JSON
-  types become semver-stable; a **conformance suite** guards them.
-- **Reproducible/signed releases** (cargo-dist + Nix), SBOM; presence in
-  **nixpkgs / Homebrew / AUR** + a **container image** for `ostd`.
-- A `curl | sh` installer that fetches the binary and runs `ost plugin install`.
+- ✅ **Release pipeline**: Nix/Cachix (`0xfell`) + release-plz + a GitHub Actions
+  cross-platform matrix shipping prebuilt `ost`/`ostd`/`libopensubtitle` + the mpv
+  plugin for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows — delivered.
+- **Remaining:** freeze `v1` (semver-stable `/v1` HTTP shapes + C-ABI symbols +
+  core JSON types) + a **conformance suite**; signed builds + SBOM; presence in
+  **nixpkgs / Homebrew / AUR** + a **container image** for `ostd`; a `curl | sh`
+  installer + `ost plugin install`.
 
 ### `v0.6+` — "Ecosystem"
 - **WASM provider SDK** (wasmtime component model) + a signed provider registry —
