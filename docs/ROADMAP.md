@@ -37,8 +37,9 @@ Turn today's JSON into a real, documented backend contract.
 
 ### `v0.4` — "Automation MVP"
 Own the recurring use case without rebuilding a UI.
-- **Sonarr/Radarr webhook consumer** (fetch subs on import) + a library scan +
-  a "wanted" list, keyless-first.
+- ✅ **Sonarr/Radarr webhook consumer** (fetch subs on import; `path_map` for
+  containers) — delivered.
+- **Remaining:** a library scan + a "wanted" list (re-search until found).
 - In-tree **provider breadth**: Gestdown, TVsubtitles, Addic7ed, embedded
   (ffmpeg), local-folder, plus an id-refiner (TVDB) where needed.
 - Caching + resilience hardening.

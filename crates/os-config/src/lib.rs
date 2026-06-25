@@ -18,6 +18,7 @@ pub struct Config {
     pub translate: TranslateConfig,
     pub transcribe: TranscribeConfig,
     pub net: NetConfig,
+    pub automation: AutomationConfig,
 }
 
 impl Default for Config {
@@ -30,6 +31,62 @@ impl Default for Config {
             translate: TranslateConfig::default(),
             transcribe: TranscribeConfig::default(),
             net: NetConfig::default(),
+            automation: AutomationConfig::default(),
+        }
+    }
+}
+
+/// Settings for the `ostd` automation webhooks (Sonarr/Radarr "On Import").
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutomationConfig {
+    /// Whether webhook-triggered fetching is active.
+    pub enabled: bool,
+    /// Optional override of the language preference for automation.
+    pub languages: Vec<String>,
+    /// Path prefix remaps, for when Sonarr/Radarr run in a different mount
+    /// namespace than `ostd` (e.g. containers). First matching prefix wins.
+    pub path_map: Vec<PathMap>,
+    /// Fallback directory for sidecars when the media file isn't reachable.
+    pub output_dir: Option<String>,
+}
+
+impl Default for AutomationConfig {
+    fn default() -> Self {
+        AutomationConfig {
+            enabled: true,
+            languages: Vec::new(),
+            path_map: Vec::new(),
+            output_dir: None,
+        }
+    }
+}
+
+/// A single path prefix remap (`from` → `to`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PathMap {
+    pub from: String,
+    pub to: String,
+}
+
+impl AutomationConfig {
+    /// Apply the configured path remaps to an incoming media path.
+    pub fn remap(&self, path: &str) -> String {
+        for m in &self.path_map {
+            if !m.from.is_empty() && path.starts_with(&m.from) {
+                return format!("{}{}", m.to, &path[m.from.len()..]);
+            }
+        }
+        path.to_string()
+    }
+
+    /// The effective language preference (automation override, else top-level).
+    pub fn languages_or<'a>(&'a self, fallback: &'a [String]) -> &'a [String] {
+        if self.languages.is_empty() {
+            fallback
+        } else {
+            &self.languages
         }
     }
 }
@@ -235,6 +292,27 @@ mod tests {
         let back: Config = toml::from_str(&text).unwrap();
         assert_eq!(back.languages, c.languages);
         assert_eq!(back.process.format, "srt");
+    }
+
+    #[test]
+    fn automation_path_remap() {
+        let a = AutomationConfig {
+            path_map: vec![PathMap {
+                from: "/data".into(),
+                to: "/mnt/media".into(),
+            }],
+            ..AutomationConfig::default()
+        };
+        assert_eq!(a.remap("/data/tv/Show/ep.mkv"), "/mnt/media/tv/Show/ep.mkv");
+        // Non-matching prefix is unchanged.
+        assert_eq!(a.remap("/other/x.mkv"), "/other/x.mkv");
+    }
+
+    #[test]
+    fn automation_defaults_enabled() {
+        let c = Config::default();
+        assert!(c.automation.enabled);
+        assert!(c.automation.path_map.is_empty());
     }
 
     #[test]

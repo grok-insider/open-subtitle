@@ -9,14 +9,16 @@
 //!   GET  /osc/file/<id>        → subtitle bytes
 
 mod osc;
+mod webhook;
 
 use os_compose::build_engine;
 use os_config::Config;
 use os_core::ports::{MediaInput, ProcessOpts};
 use os_core::{CoreError, Language, Media, MediaKind, SubtitleCandidate};
 use os_engine::Engine;
+use serde_json::json;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tiny_http::{Header, Method, Response, Server};
 
@@ -185,8 +187,168 @@ async fn handle(
             osc_file(engine, cfg, registry, &p["/osc/file/".len()..]).await
         }
 
+        // ---- automation webhooks (Sonarr/Radarr "On Import") ----
+        "/webhook" | "/webhook/sonarr" | "/webhook/radarr" => {
+            if !matches!(method, Method::Post) {
+                return Out::error(405, "unsupported", "POST required");
+            }
+            handle_webhook(engine, cfg, body).await
+        }
+
         _ => Out::error(404, "not_found", format!("unknown endpoint: {path}")),
     }
+}
+
+async fn handle_webhook(engine: &Engine, cfg: &Config, body: &str) -> Out {
+    let payload: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return Out::error(400, "parse", format!("invalid JSON: {e}")),
+    };
+    match webhook::parse(&payload) {
+        webhook::Action::Test => Out::json(json!({ "ok": true, "action": "test" })),
+        webhook::Action::Ignore(reason) => {
+            Out::json(json!({ "ok": true, "action": "ignored", "reason": reason }))
+        }
+        webhook::Action::Import(job) => {
+            if !cfg.automation.enabled {
+                return Out::json(json!({ "ok": true, "action": "disabled" }));
+            }
+            run_import(engine, cfg, *job).await
+        }
+    }
+}
+
+async fn run_import(engine: &Engine, cfg: &Config, job: webhook::Job) -> Out {
+    let langs: Vec<Language> = cfg
+        .automation
+        .languages_or(&cfg.languages)
+        .iter()
+        .filter_map(|c| Language::parse(c))
+        .collect();
+    if langs.is_empty() {
+        return Out::error(400, "config", "no languages configured");
+    }
+
+    // Resolve the (possibly remapped) media path.
+    let mapped = job.file_path.as_ref().map(|p| cfg.automation.remap(p));
+    let file_exists = mapped
+        .as_ref()
+        .map(|p| Path::new(p).is_file())
+        .unwrap_or(false);
+
+    let input = MediaInput {
+        path: if file_exists {
+            mapped.as_ref().map(PathBuf::from)
+        } else {
+            None
+        },
+        name: None,
+        query: Some(job.title.clone()),
+        kind_hint: Some(job.kind),
+        season: job.season,
+        episode: job.episode,
+    };
+    let mut media = match engine.identify(&input).await {
+        Ok(m) => m,
+        Err(e) => return err_from_core(&e),
+    };
+
+    // Overlay the *arr-authoritative ids + episode title.
+    match job.kind {
+        MediaKind::Movie => {
+            if job.imdb.is_some() {
+                media.ids.imdb = job.imdb.clone();
+            }
+            if job.tmdb.is_some() {
+                media.ids.tmdb = job.tmdb;
+            }
+        }
+        _ => {
+            if job.series_imdb.is_some() {
+                media.ids.series_imdb = job.series_imdb.clone();
+            }
+            if job.series_tvdb.is_some() {
+                media.ids.series_tvdb = job.series_tvdb;
+            }
+        }
+    }
+    if media.episode_title.is_none() {
+        media.episode_title = job.episode_title.clone();
+    }
+
+    let opts = process_opts(cfg);
+    let files = match engine.download_best(&media, &langs, &opts).await {
+        Ok(f) => f,
+        Err(CoreError::NotFound) => Vec::new(),
+        Err(e) => return err_from_core(&e),
+    };
+
+    let summary = |written: serde_json::Value, count: usize| {
+        Out::json(json!({
+            "ok": true, "action": "import", "source": job.source,
+            "media": media.label(), "count": count, "downloaded": written,
+        }))
+    };
+
+    if files.is_empty() {
+        return summary(json!([]), 0);
+    }
+
+    // Where to write: next to the file if reachable, else the fallback dir.
+    let (dir, stem) = if file_exists {
+        let pp = Path::new(mapped.as_ref().unwrap());
+        (
+            pp.parent()
+                .map(|d| d.to_path_buf())
+                .unwrap_or_else(|| PathBuf::from(".")),
+            pp.file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "subtitle".into()),
+        )
+    } else {
+        let dir = cfg
+            .automation
+            .output_dir
+            .clone()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                Config::cache_dir()
+                    .map(|c| c.join("automation"))
+                    .unwrap_or_else(|_| PathBuf::from("."))
+            });
+        (dir, sanitize_stem(&media.label()))
+    };
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        return Out::error(500, "io", format!("create dir: {e}"));
+    }
+
+    let mut written = Vec::new();
+    for f in &files {
+        let dest = dir.join(f.sidecar_name(&stem));
+        match std::fs::write(&dest, &f.text) {
+            Ok(()) => written.push(json!({
+                "language": f.language.display_tag(), "provider": f.provider,
+                "path": dest.to_string_lossy(),
+            })),
+            Err(e) => written.push(json!({ "error": format!("write {}: {e}", dest.display()) })),
+        }
+    }
+    summary(serde_json::Value::Array(written), files.len())
+}
+
+fn sanitize_stem(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '.' {
+                c
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 fn capabilities(engine: &Engine, cfg: &Config) -> Out {
