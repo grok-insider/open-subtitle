@@ -33,9 +33,21 @@ impl PostProcessor for DefaultPostProcessor {
         } else {
             raw.filename.as_str()
         };
-        let format = format::detect_format(name_for_detect, &text);
+        let mut format = format::detect_format(name_for_detect, &text);
 
-        // 4. Optional HI removal (only meaningful for srt/plain).
+        // 4. Optional format conversion to the requested target (e.g. ass -> srt).
+        if let Some(target) = &opts.target_format {
+            if target == "srt" && format != "srt" {
+                let converted = os_core::cue::to_srt(&text, &format);
+                // Only accept the conversion if it produced valid-looking SRT.
+                if format::looks_like_srt(&converted) {
+                    text = converted;
+                    format = "srt".to_string();
+                }
+            }
+        }
+
+        // 5. Optional HI removal (only meaningful for srt/plain).
         if opts.remove_hi && format == "srt" {
             text = format::remove_hi(&text);
         }

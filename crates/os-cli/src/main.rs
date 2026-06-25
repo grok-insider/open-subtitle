@@ -2,10 +2,9 @@
 //!
 //! Keyless by default. Every subcommand supports `--json` (the sidecar contract).
 
-mod compose;
-
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use os_compose::build_engine;
 use os_config::Config;
 use os_core::ports::{MediaInput, ProcessOpts};
 use os_core::{Language, MediaKind};
@@ -42,6 +41,12 @@ enum Command {
     Search(SearchArgs),
     /// Download the best subtitle(s) and write them next to the video / to --out.
     Get(GetArgs),
+    /// One-shot: identify → download → sync → (transcribe fallback).
+    Auto(GetArgs),
+    /// Sync an existing subtitle file to a video (needs a sync backend).
+    Sync(SyncArgs),
+    /// Translate an existing subtitle file to a target language.
+    Translate(TranslateArgs),
 }
 
 #[derive(Parser)]
@@ -95,8 +100,37 @@ struct GetArgs {
     /// Strip hearing-impaired cues.
     #[arg(long)]
     hi: bool,
+    /// Sync the downloaded subtitle to the video (requires a sync backend + a file path).
+    #[arg(long)]
+    sync: bool,
+    /// Also translate the result into this language (requires a translate backend).
+    #[arg(long)]
+    translate: Option<String>,
     #[arg(long)]
     json: bool,
+}
+
+#[derive(Parser)]
+struct SyncArgs {
+    /// Subtitle file to sync.
+    subtitle: PathBuf,
+    /// Reference video file.
+    video: PathBuf,
+    /// Output path (defaults to overwriting the input).
+    #[arg(long, short = 'o')]
+    out: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+struct TranslateArgs {
+    /// Subtitle file to translate.
+    subtitle: PathBuf,
+    /// Target language, e.g. `es`.
+    #[arg(long, short = 't')]
+    to: String,
+    /// Output path (defaults to `<stem>.<lang>.srt` next to the input).
+    #[arg(long, short = 'o')]
+    out: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -123,7 +157,10 @@ async fn main() -> Result<()> {
         Command::Providers => cmd_providers(&config_path),
         Command::Identify(args) => cmd_identify(&config_path, args).await,
         Command::Search(args) => cmd_search(&config_path, args).await,
-        Command::Get(args) => cmd_get(&config_path, args).await,
+        Command::Get(args) => cmd_get(&config_path, args, false).await,
+        Command::Auto(args) => cmd_get(&config_path, args, true).await,
+        Command::Sync(args) => cmd_sync(&config_path, args).await,
+        Command::Translate(args) => cmd_translate(&config_path, args).await,
     }
 }
 
@@ -196,7 +233,7 @@ fn cmd_config(path: &Path) -> Result<()> {
 
 fn cmd_providers(path: &Path) -> Result<()> {
     let cfg = Config::load(path)?;
-    let engine = compose::build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
     println!("wired providers:");
     for name in engine.provider_names() {
         let throttle = engine
@@ -211,7 +248,7 @@ fn cmd_providers(path: &Path) -> Result<()> {
 
 async fn cmd_identify(path: &Path, args: IdentifyArgs) -> Result<()> {
     let cfg = Config::load(path)?;
-    let engine = compose::build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
     let input = make_input(
         &args.input,
         args.season,
@@ -240,7 +277,7 @@ async fn cmd_identify(path: &Path, args: IdentifyArgs) -> Result<()> {
 async fn cmd_search(path: &Path, args: SearchArgs) -> Result<()> {
     let cfg = Config::load(path)?;
     let langs = parse_langs(&args.langs, &cfg);
-    let engine = compose::build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
     let input = make_input(
         &args.input,
         args.season,
@@ -274,20 +311,19 @@ async fn cmd_search(path: &Path, args: SearchArgs) -> Result<()> {
     Ok(())
 }
 
-async fn cmd_get(path: &Path, args: GetArgs) -> Result<()> {
+async fn cmd_get(path: &Path, args: GetArgs, auto_mode: bool) -> Result<()> {
     let cfg = Config::load(path)?;
     let langs = parse_langs(&args.langs, &cfg);
     if langs.is_empty() {
         anyhow::bail!("no languages specified (use -l en,es or set languages in config)");
     }
-    let engine = compose::build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
     let input = make_input(
         &args.input,
         args.season,
         args.episode,
         parse_kind(&args.kind),
     );
-    let media = engine.identify(&input).await.map_err(anyhow::Error::msg)?;
 
     let opts = ProcessOpts {
         to_utf8: cfg.process.to_utf8,
@@ -295,10 +331,50 @@ async fn cmd_get(path: &Path, args: GetArgs) -> Result<()> {
         remove_hi: args.hi || cfg.process.remove_hi,
         language: None,
     };
-    let files = engine
-        .download_best(&media, &langs, &opts)
-        .await
-        .map_err(anyhow::Error::msg)?;
+
+    let do_sync = args.sync || auto_mode;
+    let (media, mut files) = if auto_mode {
+        engine
+            .auto(&input, &langs, &opts, do_sync)
+            .await
+            .map_err(anyhow::Error::msg)?
+    } else {
+        let media = engine.identify(&input).await.map_err(anyhow::Error::msg)?;
+        let mut files = match engine.download_best(&media, &langs, &opts).await {
+            Ok(f) => f,
+            Err(os_core::CoreError::NotFound) => Vec::new(),
+            Err(e) => return Err(anyhow::Error::msg(e)),
+        };
+        if do_sync {
+            if let Some(p) = &input.path {
+                let video = Path::new(p);
+                let mut synced = Vec::with_capacity(files.len());
+                for f in files {
+                    synced.push(engine.sync_to(f, video).await);
+                }
+                files = synced;
+            }
+        }
+        (media, files)
+    };
+
+    if files.is_empty() {
+        anyhow::bail!("no subtitle found for {}", media.label());
+    }
+
+    // Optional translation of the results.
+    if let Some(tl) = &args.translate {
+        let to = Language::parse(tl)
+            .ok_or_else(|| anyhow::anyhow!("invalid --translate language: {tl}"))?;
+        let mut extra = Vec::new();
+        for f in &files {
+            match engine.translate_to(f, &to).await {
+                Ok(t) => extra.push(t),
+                Err(e) => eprintln!("translate failed: {e}"),
+            }
+        }
+        files.extend(extra);
+    }
 
     // Decide output directory + stem.
     let (out_dir, stem) = output_target(&args, &media);
@@ -330,6 +406,85 @@ async fn cmd_get(path: &Path, args: GetArgs) -> Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+/// Load a local subtitle file into a `SubtitleFile`.
+fn load_subtitle(path: &Path) -> Result<os_core::SubtitleFile> {
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let fname = path
+        .file_name()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let format = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_else(|| "srt".into());
+    // Try to read a language tag from the filename (e.g. movie.en.srt).
+    let lang = fname
+        .rsplit('.')
+        .nth(1)
+        .and_then(Language::parse)
+        .unwrap_or_else(|| Language::parse("en").unwrap());
+    Ok(os_core::SubtitleFile {
+        language: lang,
+        format,
+        text,
+        provider: "local".into(),
+        release: Some(fname),
+        hi: false,
+        forced: false,
+    })
+}
+
+async fn cmd_sync(path: &Path, args: SyncArgs) -> Result<()> {
+    let cfg = Config::load(path)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    if !engine.has_sync() {
+        anyhow::bail!(
+            "no sync backend available (set sync.backend = \"ffsubsync\" and install it)"
+        );
+    }
+    let sub = load_subtitle(&args.subtitle)?;
+    let synced = engine.sync_to(sub, &args.video).await;
+    let dest = args.out.unwrap_or(args.subtitle);
+    std::fs::write(&dest, &synced.text).with_context(|| format!("writing {}", dest.display()))?;
+    println!("synced -> {}", dest.display());
+    Ok(())
+}
+
+async fn cmd_translate(path: &Path, args: TranslateArgs) -> Result<()> {
+    let cfg = Config::load(path)?;
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
+    if !engine.has_translate() {
+        anyhow::bail!(
+            "no translate backend available (set translate.backend and endpoint in config)"
+        );
+    }
+    let to = Language::parse(&args.to)
+        .ok_or_else(|| anyhow::anyhow!("invalid target language: {}", args.to))?;
+    let sub = load_subtitle(&args.subtitle)?;
+    let translated = engine
+        .translate_to(&sub, &to)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    let dest = args.out.unwrap_or_else(|| {
+        let stem = args
+            .subtitle
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "subtitle".into());
+        let dir = args
+            .subtitle
+            .parent()
+            .map(|d| d.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        dir.join(format!("{stem}.{}.srt", to.alpha2()))
+    });
+    std::fs::write(&dest, &translated.text)
+        .with_context(|| format!("writing {}", dest.display()))?;
+    println!("translated -> {}", dest.display());
     Ok(())
 }
 

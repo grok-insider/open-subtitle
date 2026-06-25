@@ -7,6 +7,7 @@
 //! Adapters in sibling crates implement the [`ports`]; `os-engine` orchestrates
 //! them depending only on this surface.
 
+pub mod cue;
 pub mod error;
 pub mod guess;
 pub mod lang;
@@ -14,6 +15,7 @@ pub mod model;
 pub mod ports;
 pub mod score;
 
+pub use cue::{emit_srt, parse_srt, to_srt, Cue};
 pub use error::{network, CoreError, CoreResult};
 pub use guess::{guess, Guess};
 pub use lang::Language;

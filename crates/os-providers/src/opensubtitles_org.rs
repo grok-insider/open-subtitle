@@ -23,39 +23,65 @@ impl OpenSubtitlesOrg {
         OpenSubtitlesOrg { client }
     }
 
-    /// Build the alphabetical `key-value/...` search path for a query.
-    fn build_path(&self, q: &Query) -> String {
-        let media = &q.media;
-        let mut segs: Vec<(String, String)> = Vec::new();
-
-        // Languages → sublanguageid as comma-joined ISO 639-2/B codes.
-        if !q.languages.is_empty() {
-            let langs = q
-                .languages
-                .iter()
-                .map(|l| l.alpha3b())
-                .collect::<Vec<_>>()
-                .join(",");
-            segs.push(("sublanguageid".into(), langs));
+    /// The `sublanguageid-...` segment for the requested languages.
+    fn lang_seg(&self, q: &Query) -> Option<(String, String)> {
+        if q.languages.is_empty() {
+            return None;
         }
+        let langs = q
+            .languages
+            .iter()
+            .map(|l| l.alpha3b())
+            .collect::<Vec<_>>()
+            .join(",");
+        Some(("sublanguageid".into(), langs))
+    }
 
-        // Hash + size (strongest signal) when available.
+    /// Build the alphabetical `key-value/...` path from segments.
+    fn build_url(&self, segs: &[(String, String)]) -> String {
+        let mut segs = segs.to_vec();
+        segs.sort_by(|a, b| a.0.cmp(&b.0));
+        let path = segs
+            .iter()
+            .map(|(k, v)| format!("{k}-{}", urlencoding::encode(v)))
+            .collect::<Vec<_>>()
+            .join("/");
+        format!("{BASE}/{path}")
+    }
+
+    /// Up to two search URLs: a hash search (when a hash is known) and a
+    /// metadata/text search. The endpoint ANDs all segments, so a non-matching
+    /// hash must not be mixed with the text query — we run them separately and
+    /// merge the results.
+    fn build_urls(&self, q: &Query) -> Vec<String> {
+        let media = &q.media;
+        let lang = self.lang_seg(q);
+        let mut urls = Vec::new();
+
+        // Hash search.
         if let Some(h) = media.hashes.get("osdb") {
+            let mut segs: Vec<(String, String)> = Vec::new();
+            if let Some(l) = &lang {
+                segs.push(l.clone());
+            }
             segs.push(("moviehash".into(), h.clone()));
             if let Some(size) = media.size {
                 segs.push(("moviebytesize".into(), size.to_string()));
             }
+            urls.push(self.build_url(&segs));
         }
 
-        // IMDb id (digits only).
+        // Metadata / text search.
+        let mut segs: Vec<(String, String)> = Vec::new();
+        if let Some(l) = &lang {
+            segs.push(l.clone());
+        }
         if let Some(imdb) = &media.ids.imdb {
             let digits: String = imdb.chars().filter(|c| c.is_ascii_digit()).collect();
             if !digits.is_empty() {
                 segs.push(("imdbid".into(), digits));
             }
         }
-
-        // Episodic coordinates.
         if media.kind.is_episodic() {
             if let Some(s) = media.season {
                 segs.push(("season".into(), s.to_string()));
@@ -64,18 +90,14 @@ impl OpenSubtitlesOrg {
                 segs.push(("episode".into(), e.to_string()));
             }
         }
-
-        // Text query (lowercased) — always include as a fallback signal.
         if !media.title.is_empty() {
             segs.push(("query".into(), media.title.to_lowercase()));
         }
+        if segs.iter().any(|(k, _)| k != "sublanguageid") {
+            urls.push(self.build_url(&segs));
+        }
 
-        // Alphabetical by key, then `key-encodedvalue` joined by `/`.
-        segs.sort_by(|a, b| a.0.cmp(&b.0));
-        segs.into_iter()
-            .map(|(k, v)| format!("{k}-{}", urlencoding::encode(&v)))
-            .collect::<Vec<_>>()
-            .join("/")
+        urls
     }
 }
 
@@ -168,22 +190,44 @@ impl Provider for OpenSubtitlesOrg {
     }
 
     async fn list(&self, query: &Query) -> CoreResult<Vec<SubtitleCandidate>> {
-        let url = format!("{BASE}/{}", self.build_path(query));
-        let resp = self
-            .client
-            .get(&url)
-            .header("User-Agent", UA)
-            .send()
-            .await
-            .map_err(|e| http::net_err("opensubtitles_org", e))?;
-        if !resp.status().is_success() {
-            return Err(http::status_to_error(resp.status(), "opensubtitles_org"));
+        let urls = self.build_urls(query);
+        let mut merged: Vec<SubtitleCandidate> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut last_err = None;
+
+        for url in &urls {
+            let resp = match self.client.get(url).header("User-Agent", UA).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    last_err = Some(http::net_err("opensubtitles_org", e));
+                    continue;
+                }
+            };
+            if !resp.status().is_success() {
+                last_err = Some(http::status_to_error(resp.status(), "opensubtitles_org"));
+                continue;
+            }
+            let json: serde_json::Value = match resp.json().await {
+                Ok(j) => j,
+                Err(e) => {
+                    last_err = Some(CoreError::Parse(format!("opensubtitles_org: {e}")));
+                    continue;
+                }
+            };
+            for c in parse_results(&json) {
+                if seen.insert(c.id.clone()) {
+                    merged.push(c);
+                }
+            }
         }
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| CoreError::Parse(format!("opensubtitles_org: {e}")))?;
-        Ok(parse_results(&json))
+
+        // Only surface an error if every request failed and nothing came back.
+        if merged.is_empty() {
+            if let Some(e) = last_err {
+                return Err(e);
+            }
+        }
+        Ok(merged)
     }
 
     async fn fetch(&self, candidate: &SubtitleCandidate) -> CoreResult<RawSubtitle> {
@@ -232,7 +276,7 @@ mod tests {
     use os_core::{Media, Query};
 
     #[test]
-    fn builds_alphabetical_path() {
+    fn builds_separate_hash_and_text_searches() {
         let p = OpenSubtitlesOrg::new(reqwest::Client::new());
         let mut media = Media::episode("The Show", 1, 2);
         media.hashes.insert("osdb".into(), "abc123".into());
@@ -244,17 +288,22 @@ mod tests {
                 Language::parse("es").unwrap(),
             ],
         };
-        let path = p.build_path(&q);
-        // Keys must be alphabetical: episode, moviebytesize, moviehash, query, season, sublanguageid
-        let keys: Vec<&str> = path
-            .split('/')
-            .map(|s| s.split('-').next().unwrap())
-            .collect();
-        let mut sorted = keys.clone();
-        sorted.sort();
-        assert_eq!(keys, sorted);
-        assert!(path.contains("moviehash-abc123"));
-        assert!(path.contains("sublanguageid-eng%2Cspa") || path.contains("sublanguageid-eng,spa"));
+        let urls = p.build_urls(&q);
+        // Two separate searches: one hash, one text — never combined (the endpoint
+        // ANDs segments, so a non-matching hash must not suppress the text query).
+        assert_eq!(urls.len(), 2);
+        let hash_url = urls
+            .iter()
+            .find(|u| u.contains("moviehash-abc123"))
+            .unwrap();
+        let text_url = urls.iter().find(|u| u.contains("query-")).unwrap();
+        assert!(!hash_url.contains("query-"));
+        assert!(text_url.contains("episode-2"));
+        assert!(text_url.contains("season-1"));
+        assert!(
+            hash_url.contains("sublanguageid-eng%2Cspa")
+                || hash_url.contains("sublanguageid-eng,spa")
+        );
     }
 
     #[test]
