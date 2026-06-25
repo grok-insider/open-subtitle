@@ -1,8 +1,14 @@
 # future-features — backlog & nice-to-haves
 
-Things intentionally **out of the v1 path** (`docs/PLAN.md`/`docs/ROADMAP.md`),
-kept here so they aren't lost. Most layer on top of `ostd`/FFI rather than baking
-into core.
+Things intentionally **out of the near-term path**, kept here so they aren't lost.
+Most layer on top of `ostd`/FFI rather than baking into core.
+
+> Prioritization note: the *direction* is set in `docs/STRATEGY.md`. Several items
+> below have since been **promoted onto the roadmap** as the strategic core — the
+> OpenSubtitles-compatible endpoint and `/v1` contract (→ `v0.3`), media-server
+> automation (→ `v0.4`), and the WASM provider SDK + standalone automation
+> (→ `v0.6+`). They remain listed here for detail; `docs/ROADMAP.md` is the
+> sequencing source of truth.
 
 ## More providers
 - **OpenSubtitles.org via the legacy XML-RPC** as a fallback to the REST host.

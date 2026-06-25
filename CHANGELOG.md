@@ -7,6 +7,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Long-term strategy + protocol direction (docs).**
+  - `docs/STRATEGY.md` — commits the project to becoming the embeddable subtitle
+    *backend standard* (stable protocol + provider SDK), with the
+    OpenSubtitles-compatible `ostd` surface as the wedge and self-hosted media
+    automation as the flagship application. Records the five committed decisions.
+  - `docs/PROTOCOL.md` — descriptive spec of the integration contract
+    (daemon/FFI/WASM JSON shapes grounded in the engine types + the planned
+    OpenSubtitles-compatible REST surface); frozen as `v1` at v0.5.
+  - `docs/ROADMAP.md` — re-sequenced around the strategy (`v0.3` the contract,
+    `v0.4` automation MVP, `v0.5` freeze `v1` + packaging, `v0.6+` ecosystem).
+  - `AGENTS.md` / `future-features.md` updated to point at the strategy as the
+    source of direction.
 - **Full toolchain + all frontends (Phases 5–9).**
   - `os-core::cue` — pure SRT/WebVTT/SSA·ASS parser + **ASS/VTT→SRT conversion**
     (strips override tags, `\N`→newline); wired into the post-processor so `get`
