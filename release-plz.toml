@@ -20,8 +20,12 @@
 # authoritative ones.)
 git_only = true
 publish = false
-# Release only when the release PR is merged, not on every master commit.
-release_always = false
+# Release whenever master has an un-tagged version (the release-plz default).
+# More robust than the PR-merge-only model (release_always = false): a release
+# still happens after a failed run or a manual fix, not only on the exact
+# release-PR-merge commit. The release PR still opens to bump version + changelog;
+# merging it lands an un-tagged version, which this then releases.
+release_always = true
 # Internal libraries + two bins + one cdylib, not a published API surface: skip
 # cargo-semver-checks (it only applies to crates.io libraries anyway).
 semver_check = false
