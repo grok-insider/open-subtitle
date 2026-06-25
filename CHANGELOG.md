@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0](https://github.com/0xfell/open-subtitle/releases/tag/v0.1.0) - 2026-06-25
+
+### Added
+
+- full toolchain, all frontends, and the mpv plugin (Phases 5-9)
+- implement the keyless engine (Phases 0-4) in Rust
+
 ### Added
 - **Release & distribution pipeline (Nix/Cachix + GitHub Actions + release-plz).**
   - `flake.nix` — builds `ost` + `ostd` + `libopensubtitle` (+ `opensubtitle.h`)
