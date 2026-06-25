@@ -6,14 +6,26 @@ when their acceptance criteria pass.
 
 ## Delivered to date (snapshot)
 
-The engine and all frontends exist and are tested (see `CHANGELOG.md`): the
-hexagonal Rust workspace, keyless providers (OpenSubtitles.org) + key-optional
-(SubDL, OpenSubtitles.com, Jimaku), OSDB hashing, the two-layer scorer, the
-throttler, encoding→UTF-8, ASS/VTT→SRT conversion, the sync/translate/transcribe
-adapters, the `ost` CLI (+`--json`), the `ostd` daemon, the `libopensubtitle`
-C-ABI, and the mpv plugin (verified loading subtitles in real mpv). What remains
-is **commitment** (a stable contract) and **reach** (automation + distribution),
-per the strategy.
+The engine, all frontends, automation, and the release pipeline exist and are
+tested (see `CHANGELOG.md`):
+
+- **Engine:** hexagonal Rust workspace, keyless OpenSubtitles.org + key-optional
+  (SubDL, OpenSubtitles.com, Jimaku), OSDB hashing, the two-layer scorer, the
+  throttler, encoding→UTF-8, ASS/VTT→SRT conversion, and the
+  sync/translate/transcribe adapters (`auto`).
+- **Frontends:** the `ost` CLI (+`--json`), the `ostd` daemon (with
+  `/capabilities`, a typed error envelope, the **OpenSubtitles-compatible**
+  surface, and **Sonarr/Radarr webhooks**), the `libopensubtitle` C-ABI, and the
+  mpv plugin (verified loading subtitles in real mpv).
+- **Distribution:** **v0.1.0 released** with prebuilt binaries for Linux
+  (x86_64/aarch64), macOS (x86_64/arm64), and Windows; Nix/Cachix (`0xfell`),
+  release-plz, and branch-protected CI (PR + green checks required).
+- **Contract:** `docs/PROTOCOL.md` + JSON Schemas under `docs/schemas/`.
+
+What remains is **commitment** (freezing the contract + a conformance suite) and
+**reach** (the automation wanted-list, provider breadth, and broader
+distribution). The actionable backlog lives in
+[`../continue-plan.md`](../continue-plan.md).
 
 ## Milestones
 
@@ -26,14 +38,16 @@ Jimaku (AniList-matched) + ASS/VTT→SRT conversion + encoding normalization are
 done. **Remaining:** AnimeTosho/Kitsunekko, archive-member scoring, the mods
 pipeline (HI/OCR/common/color), and RAR/7z/xz extraction.
 
-### `v0.3` — "The contract" (the strategic core)
+### `v0.3` — "The contract" (the strategic core) — mostly delivered
 Turn today's JSON into a real, documented backend contract.
-- `PROTOCOL.md` spec + **JSON Schemas** under `docs/schemas/`.
-- `ostd` `/v1` surface: `capabilities`, `POST /get` with a `Media` body, an
-  **event/progress stream**, and the typed error envelope.
-- **The wedge:** the **OpenSubtitles-compatible** REST surface on `ostd`, so
-  existing OpenSubtitles.com clients can be repointed at our local engine.
-- `ost plugin install <app>` self-installer (reference clients of the contract).
+- ✅ `PROTOCOL.md` spec + **JSON Schemas** under `docs/schemas/`.
+- ✅ `ostd` `/capabilities`, the **typed error envelope**, and `/v1` aliases.
+- ✅ **The wedge:** the **OpenSubtitles-compatible** REST surface on `ostd`
+  (search → download → file), so existing OpenSubtitles.com clients can be
+  repointed at our local engine.
+- **Remaining:** OSc hardening (`/login`, header tolerance, `/infos/*`,
+  `moviehash`), `POST /get` with a `Media` body, an **SSE progress stream**, a
+  **conformance suite**, and the `ost plugin install <app>` self-installer.
 
 ### `v0.4` — "Automation MVP"
 Own the recurring use case without rebuilding a UI.
@@ -48,10 +62,12 @@ Own the recurring use case without rebuilding a UI.
 - ✅ **Release pipeline**: Nix/Cachix (`0xfell`) + release-plz + a GitHub Actions
   cross-platform matrix shipping prebuilt `ost`/`ostd`/`libopensubtitle` + the mpv
   plugin for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows — delivered.
+- ✅ **Branch-protected CI**: `master` requires a PR + a green `fmt + clippy +
+  test` check (admins included).
 - **Remaining:** freeze `v1` (semver-stable `/v1` HTTP shapes + C-ABI symbols +
-  core JSON types) + a **conformance suite**; signed builds + SBOM; presence in
-  **nixpkgs / Homebrew / AUR** + a **container image** for `ostd`; a `curl | sh`
-  installer + `ost plugin install`.
+  core JSON types) + a **conformance suite**; signed builds + SBOM; a glibc `.so`
+  release leg; presence in **nixpkgs / Homebrew / AUR** + a **container image**
+  for `ostd`; a `curl | sh` installer + `ost plugin install`.
 
 ### `v0.6+` — "Ecosystem"
 - **WASM provider SDK** (wasmtime component model) + a signed provider registry —
@@ -83,10 +99,11 @@ open-subtitle is the embeddable subtitle backend others depend on.
 | Transcribe fallback (Whisper) | ✅ | ❌ | ✅ (provider) | ❌ | ❌ | ✅ |
 | CLI | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
 | HTTP/JSON daemon | ✅ | ❌ | ✅ (web) | ❌ | ❌ | ❌ |
-| OpenSubtitles-compatible API | ⏳ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| OpenSubtitles-compatible API | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | C-ABI / WASM | ✅ / ⏳ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Provider SDK (sandboxed) | ⏳ | partial (entrypoints) | ❌ | ❌ | ❌ | ❌ |
-| Media-server automation | ⏳ | ❌ | ✅ | ❌ | ❌ | partial |
+| Media-server automation | ✅ (webhooks) | ❌ | ✅ | ❌ | ❌ | partial |
+| Prebuilt cross-platform binaries | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | mpv plugin | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ |
 | Single static binary | ✅ | ❌ (Python) | ❌ (Python) | ❌ | ❌ | ❌ (bash) |
 
