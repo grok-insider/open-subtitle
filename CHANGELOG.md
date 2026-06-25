@@ -7,6 +7,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Full toolchain + all frontends (Phases 5–9).**
+  - `os-core::cue` — pure SRT/WebVTT/SSA·ASS parser + **ASS/VTT→SRT conversion**
+    (strips override tags, `\N`→newline); wired into the post-processor so `get`
+    delivers `.srt` even when the source was `.ass`.
+  - `os-providers` — added **Jimaku** (anime, AniList-matched, key-optional).
+  - `os-sync` — **ffsubsync** + **alass** adapters (runtime-detected).
+  - `os-translate` — **LibreTranslate** adapter (per-cue, timing-preserving,
+    local-first).
+  - `os-transcribe` — **Whisper** CLI adapter (transcribe fallback).
+  - `os-engine` — wired the optional sync/translate/transcribe ports + an `auto`
+    pipeline (identify→download→sync→transcribe-fallback).
+  - `os-compose` — shared composition root used by all frontends.
+  - `os-daemon` — **`ostd`** HTTP/JSON server (`/health`, `/identify`, `/search`,
+    `/get`).
+  - `os-ffi` — **`libopensubtitle`** C-ABI (cdylib/staticlib) with JSON in/out.
+  - `os-mpv` — the **mpv Lua plugin** that drives `ost --json` and `sub-add`s the
+    result (auto + manual `mp.input` search, configurable keybinds).
+  - `ost` gained `auto`/`sync`/`translate` subcommands and `--sync`/`--translate`
+    flags on `get`.
+  - OpenSubtitles.org now runs **separate hash and text searches and merges**
+    them (a non-matching file hash no longer suppresses query results).
+  - 50 tests pass; clippy clean. **Verified in real mpv** (via the `wisp` driver):
+    the plugin downloaded a subtitle keyless and rendered it; ASS→SRT conversion,
+    the `ostd` daemon, and `get` on a hashed file all confirmed live.
 - **Working keyless engine (Phases 0–4).** A Rust workspace implementing the
   hexagonal design end-to-end:
   - `os-core` — domain model, ports, errors, and the pure two-layer

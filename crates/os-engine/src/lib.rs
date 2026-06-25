@@ -10,12 +10,14 @@ pub use throttle::Throttler;
 
 use futures::stream::{self, StreamExt};
 use os_core::ports::{
-    Identifier, MediaInput, PostProcessor, ProcessOpts, Provider, Refiner, Scorer,
+    Identifier, MediaInput, PostProcessor, ProcessOpts, Provider, Refiner, Scorer, Synchronizer,
+    Transcriber, Translator,
 };
 use os_core::{
     passes_series_safety, CoreError, CoreResult, Language, Media, Query, SubtitleCandidate,
     SubtitleFile,
 };
+use std::path::Path;
 use std::sync::Arc;
 
 /// The composed engine. Cheap to clone-share via `Arc` fields.
@@ -26,6 +28,9 @@ pub struct Engine {
     providers: Vec<Arc<dyn Provider>>,
     scorer: Arc<dyn Scorer>,
     post: Arc<dyn PostProcessor>,
+    synchronizer: Option<Arc<dyn Synchronizer>>,
+    translator: Option<Arc<dyn Translator>>,
+    transcriber: Option<Arc<dyn Transcriber>>,
     throttler: Arc<Throttler>,
     max_concurrency: usize,
     min_score: i32,
@@ -201,16 +206,89 @@ impl Engine {
         }
     }
 
-    /// Identify + download in one call.
+    /// Whether a synchronizer/translator/transcriber is wired.
+    pub fn has_sync(&self) -> bool {
+        self.synchronizer.is_some()
+    }
+    pub fn has_translate(&self) -> bool {
+        self.translator.is_some()
+    }
+    pub fn has_transcribe(&self) -> bool {
+        self.transcriber.is_some()
+    }
+
+    /// Sync a subtitle to a reference video (best-effort: returns the input
+    /// unchanged if no synchronizer is wired or the tool fails).
+    pub async fn sync_to(&self, sub: SubtitleFile, video: &Path) -> SubtitleFile {
+        let Some(sync) = &self.synchronizer else {
+            return sub;
+        };
+        match sync.sync(&sub, video).await {
+            Ok(synced) => synced,
+            Err(e) => {
+                tracing::debug!(error = %e, "sync failed (keeping original)");
+                sub
+            }
+        }
+    }
+
+    /// Translate a subtitle into a target language (errors if no translator).
+    pub async fn translate_to(
+        &self,
+        sub: &SubtitleFile,
+        to: &Language,
+    ) -> CoreResult<SubtitleFile> {
+        let translator = self
+            .translator
+            .as_ref()
+            .ok_or_else(|| CoreError::Unsupported("no translator configured".into()))?;
+        translator.translate(sub, to).await
+    }
+
+    /// The full one-shot pipeline: identify → download best → (sync) →
+    /// (transcribe fallback when nothing was found).
     pub async fn auto(
         &self,
         input: &MediaInput,
         languages: &[Language],
         opts: &ProcessOpts,
+        do_sync: bool,
     ) -> CoreResult<(Media, Vec<SubtitleFile>)> {
         let media = self.identify(input).await?;
-        let files = self.download_best(&media, languages, opts).await?;
-        Ok((media, files))
+        let mut files = match self.download_best(&media, languages, opts).await {
+            Ok(f) => f,
+            Err(CoreError::NotFound) => Vec::new(),
+            Err(e) => return Err(e),
+        };
+
+        // Transcribe fallback when nothing was found online.
+        if files.is_empty() {
+            if let (Some(tx), Some(path)) = (&self.transcriber, &input.path) {
+                let lang = languages.first().cloned();
+                match tx.transcribe(Path::new(path), lang.as_ref()).await {
+                    Ok(f) => files.push(f),
+                    Err(e) => tracing::debug!(error = %e, "transcribe fallback failed"),
+                }
+            }
+        }
+
+        // Optional sync to the video.
+        if do_sync && self.synchronizer.is_some() {
+            if let Some(path) = &input.path {
+                let video = Path::new(path);
+                let mut synced = Vec::with_capacity(files.len());
+                for f in files {
+                    synced.push(self.sync_to(f, video).await);
+                }
+                files = synced;
+            }
+        }
+
+        if files.is_empty() {
+            Err(CoreError::NotFound)
+        } else {
+            Ok((media, files))
+        }
     }
 }
 
@@ -222,6 +300,9 @@ pub struct EngineBuilder {
     providers: Vec<Arc<dyn Provider>>,
     scorer: Option<Arc<dyn Scorer>>,
     post: Option<Arc<dyn PostProcessor>>,
+    synchronizer: Option<Arc<dyn Synchronizer>>,
+    translator: Option<Arc<dyn Translator>>,
+    transcriber: Option<Arc<dyn Transcriber>>,
     max_concurrency: Option<usize>,
     min_score: Option<i32>,
 }
@@ -247,6 +328,18 @@ impl EngineBuilder {
         self.post = Some(p);
         self
     }
+    pub fn synchronizer(mut self, s: Arc<dyn Synchronizer>) -> Self {
+        self.synchronizer = Some(s);
+        self
+    }
+    pub fn translator(mut self, t: Arc<dyn Translator>) -> Self {
+        self.translator = Some(t);
+        self
+    }
+    pub fn transcriber(mut self, t: Arc<dyn Transcriber>) -> Self {
+        self.transcriber = Some(t);
+        self
+    }
     pub fn max_concurrency(mut self, n: usize) -> Self {
         self.max_concurrency = Some(n);
         self
@@ -270,6 +363,9 @@ impl EngineBuilder {
             post: self
                 .post
                 .ok_or_else(|| CoreError::Config("engine: post-processor required".into()))?,
+            synchronizer: self.synchronizer,
+            translator: self.translator,
+            transcriber: self.transcriber,
             throttler: Arc::new(Throttler::new()),
             max_concurrency: self.max_concurrency.unwrap_or(8),
             min_score: self.min_score.unwrap_or(0),

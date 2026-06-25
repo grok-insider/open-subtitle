@@ -1,0 +1,22 @@
+[package]
+name = "os-compose"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "open-subtitle composition root: build an Engine from Config (shared by frontends)"
+
+[dependencies]
+os-core = { workspace = true }
+os-config = { workspace = true }
+os-identify = { workspace = true }
+os-providers = { workspace = true }
+os-process = { workspace = true }
+os-sync = { workspace = true }
+os-translate = { workspace = true }
+os-transcribe = { workspace = true }
+os-engine = { workspace = true }
+
+[lints]
+workspace = true

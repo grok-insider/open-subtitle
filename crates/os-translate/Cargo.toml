@@ -1,0 +1,17 @@
+[package]
+name = "os-translate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "open-subtitle translation adapters (LibreTranslate / local, LLM optional)"
+
+[dependencies]
+os-core = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

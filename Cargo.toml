@@ -6,7 +6,13 @@ members = [
     "crates/os-identify",
     "crates/os-providers",
     "crates/os-process",
+    "crates/os-sync",
+    "crates/os-translate",
+    "crates/os-transcribe",
     "crates/os-engine",
+    "crates/os-compose",
+    "crates/os-daemon",
+    "crates/os-ffi",
     "crates/os-cli",
 ]
 
@@ -25,6 +31,10 @@ os-identify = { path = "crates/os-identify" }
 os-providers = { path = "crates/os-providers" }
 os-process = { path = "crates/os-process" }
 os-engine = { path = "crates/os-engine" }
+os-sync = { path = "crates/os-sync" }
+os-translate = { path = "crates/os-translate" }
+os-transcribe = { path = "crates/os-transcribe" }
+os-compose = { path = "crates/os-compose" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -32,7 +42,7 @@ thiserror = "2"
 async-trait = "0.1"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process"] }
 futures = "0.3"
 toml = "0.8"
 directories = "6"
@@ -45,6 +55,7 @@ chardetng = "0.1"
 flate2 = "1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 urlencoding = "2"
+tiny_http = "0.12"
 
 [workspace.lints.clippy]
 all = "warn"
