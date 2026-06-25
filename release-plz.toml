@@ -14,8 +14,12 @@
 
 [workspace]
 # Not on crates.io: determine the current version from the `v*` git tag instead
-# of the cargo registry. Implies no `cargo publish`.
+# of the cargo registry, and never run `cargo publish`. (Set at BOTH the workspace
+# and the os-cli package level — release-plz #2693: workspace-level values don't
+# always propagate to packages, so the per-package settings below are the
+# authoritative ones.)
 git_only = true
+publish = false
 # Release only when the release PR is merged, not on every master commit.
 release_always = false
 # Internal libraries + two bins + one cdylib, not a published API surface: skip
@@ -31,6 +35,10 @@ pr_labels = ["release"]
 [[package]]
 name = "os-cli"
 release = true
+# Authoritative per-package settings (see the note in [workspace]): use git tags
+# for version detection and never publish to crates.io.
+git_only = true
+publish = false
 # One workspace-wide tag + release name, e.g. `v0.2.0` (the multi-crate default
 # would be `os-cli-v0.2.0`).
 git_tag_name = "v{{ version }}"
