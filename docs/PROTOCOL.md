@@ -180,6 +180,32 @@ provider served the result.
 
 ---
 
+## 5b. Automation webhooks (Sonarr/Radarr)
+
+`ostd` accepts Sonarr/Radarr **"On Import"** webhooks and fetches subtitles for the
+imported file automatically — the flagship automation use case.
+
+| Method | Path | Body | Action |
+|--------|------|------|--------|
+| POST | `/webhook` | Sonarr or Radarr payload (auto-detected) | fetch on import |
+| POST | `/webhook/sonarr` | Sonarr payload | fetch on import |
+| POST | `/webhook/radarr` | Radarr payload | fetch on import |
+
+Behavior: acts on `eventType ∈ {Download, Import}`; `Test` is acknowledged;
+everything else is ignored. The handler builds a `Media` from the payload
+(title, year, ids, season/episode, anime when `series.type == "anime"`), hashes
+the file when reachable, downloads the best subtitle per configured language, and
+writes sidecars **next to the media file** (or to `automation.output_dir` when the
+path isn't reachable). Config (`[automation]`): `enabled`, `languages`,
+`path_map` (prefix remap for containers), `output_dir`.
+
+Response:
+```json
+{ "ok": true, "action": "import", "source": "radarr",
+  "media": "Interstellar (2014)", "count": 1,
+  "downloaded": [ { "language": "en", "provider": "opensubtitles_org", "path": "…/Movie.en.srt" } ] }
+```
+
 ## 6. Error model (planned `v1`)
 
 A typed envelope so clients and the throttler react correctly:

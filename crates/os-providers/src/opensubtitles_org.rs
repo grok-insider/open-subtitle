@@ -71,29 +71,41 @@ impl OpenSubtitlesOrg {
             urls.push(self.build_url(&segs));
         }
 
-        // Metadata / text search.
-        let mut segs: Vec<(String, String)> = Vec::new();
-        if let Some(l) = &lang {
-            segs.push(l.clone());
-        }
+        // Episodic season/episode segments appended to a metadata search.
+        let ep_segs = |segs: &mut Vec<(String, String)>| {
+            if media.kind.is_episodic() {
+                if let Some(s) = media.season {
+                    segs.push(("season".into(), s.to_string()));
+                }
+                if let Some(e) = media.episode_num() {
+                    segs.push(("episode".into(), e.to_string()));
+                }
+            }
+        };
+
+        // IMDb-id search (ALONE — opensubtitles.org returns nothing when imdbid
+        // and query are combined, even though each works on its own).
         if let Some(imdb) = &media.ids.imdb {
             let digits: String = imdb.chars().filter(|c| c.is_ascii_digit()).collect();
             if !digits.is_empty() {
+                let mut segs: Vec<(String, String)> = Vec::new();
+                if let Some(l) = &lang {
+                    segs.push(l.clone());
+                }
                 segs.push(("imdbid".into(), digits));
+                ep_segs(&mut segs);
+                urls.push(self.build_url(&segs));
             }
         }
-        if media.kind.is_episodic() {
-            if let Some(s) = media.season {
-                segs.push(("season".into(), s.to_string()));
-            }
-            if let Some(e) = media.episode_num() {
-                segs.push(("episode".into(), e.to_string()));
-            }
-        }
+
+        // Text-query search (separate from the imdbid search).
         if !media.title.is_empty() {
+            let mut segs: Vec<(String, String)> = Vec::new();
+            if let Some(l) = &lang {
+                segs.push(l.clone());
+            }
             segs.push(("query".into(), media.title.to_lowercase()));
-        }
-        if segs.iter().any(|(k, _)| k != "sublanguageid") {
+            ep_segs(&mut segs);
             urls.push(self.build_url(&segs));
         }
 
@@ -304,6 +316,25 @@ mod tests {
             hash_url.contains("sublanguageid-eng%2Cspa")
                 || hash_url.contains("sublanguageid-eng,spa")
         );
+    }
+
+    #[test]
+    fn imdbid_and_query_are_separate_searches() {
+        // opensubtitles.org returns nothing when imdbid+query are combined, so
+        // they must be issued as distinct searches.
+        let p = OpenSubtitlesOrg::new(reqwest::Client::new());
+        let mut media = Media::movie("Interstellar");
+        media.ids.imdb = Some("0816692".into());
+        let q = Query {
+            media,
+            languages: vec![Language::parse("en").unwrap()],
+        };
+        let urls = p.build_urls(&q);
+        let imdb_url = urls.iter().find(|u| u.contains("imdbid-0816692")).unwrap();
+        let query_url = urls.iter().find(|u| u.contains("query-")).unwrap();
+        // Neither search mixes imdbid with query.
+        assert!(!imdb_url.contains("query-"));
+        assert!(!query_url.contains("imdbid-"));
     }
 
     #[test]

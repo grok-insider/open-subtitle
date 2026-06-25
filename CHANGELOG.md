@@ -7,6 +7,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`v0.4` automation MVP — Sonarr/Radarr webhooks.** `ostd` now accepts
+  Sonarr/Radarr "On Import" webhooks (`POST /webhook`, `/webhook/sonarr`,
+  `/webhook/radarr`) and fetches subtitles for the imported file automatically,
+  writing sidecars next to it.
+  - `os-daemon::webhook` — a pure, tested parser for Sonarr/Radarr payloads
+    (eventType handling, Sonarr-vs-Radarr detection, path fallback from
+    `relativePath`, anime detection via `series.type`).
+  - `os-config` `[automation]` section: `enabled`, `languages`, `path_map`
+    (prefix remap for containerized *-arr setups), `output_dir` fallback.
+  - Builds the search `Media` from the authoritative payload (ids/title/season/
+    episode) via `engine.identify`, hashing the file when reachable.
+  - Documented in `docs/PROTOCOL.md` §5b.
+
+### Fixed
+- **OpenSubtitles.org search** now issues the `imdbid` and `query` searches
+  **separately** and merges them. The endpoint returns nothing when `imdbid` and
+  `query` are combined in one request (confirmed against the live API), which made
+  webhook movie imports (which carry an IMDb id) return zero results.
+
+### Added (earlier)
 - **`v0.3` "the contract" — first slice (the wedge).**
   - **OpenSubtitles.com-compatible surface on `ostd`** so existing OpenSubtitles
     clients can be repointed at the local engine: `GET /osc/api/v1/subtitles`,
