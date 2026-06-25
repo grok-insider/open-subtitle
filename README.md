@@ -99,8 +99,10 @@ and WASM.
             └──────────────┘
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and
-[docs/RESEARCH.md](docs/RESEARCH.md) for the prior-art analysis this is built on.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design,
+[docs/RESEARCH.md](docs/RESEARCH.md) for the prior-art analysis this is built on,
+[docs/STRATEGY.md](docs/STRATEGY.md) for the long-term direction (the backend
+standard), and [docs/PROTOCOL.md](docs/PROTOCOL.md) for the integration contract.
 
 ## What it will do (target capabilities)
 

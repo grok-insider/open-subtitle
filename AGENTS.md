@@ -155,6 +155,11 @@ with the concrete algorithms (OSDB hash, scoring weights, throttle map).
 
 ## Roadmap & planning
 
+- `docs/STRATEGY.md` — the long-term direction (backend standard) + the committed
+  decisions. **Read this first** to understand *why* the roadmap is ordered as it
+  is.
+- `docs/PROTOCOL.md` — the integration contract (daemon/FFI/WASM JSON shapes + the
+  OpenSubtitles-compatible surface). Descriptive until frozen at `v0.5`.
 - `docs/PLAN.md` — the phased build plan + acceptance criteria.
 - `docs/ROADMAP.md` — version milestones and the feature matrix.
 - `docs/RESEARCH.md` — prior-art analysis the design is built on.
@@ -162,6 +167,9 @@ with the concrete algorithms (OSDB hash, scoring weights, throttle map).
 - `future-features.md` — backlog / nice-to-haves.
 - `CHANGELOG.md` — keep-a-changelog; update `Unreleased` with each meaningful
   change.
+
+When the contract (PROTOCOL.md) changes before `v0.5`, note it in `CHANGELOG.md`;
+after `v0.5` it is semver-stable and guarded by the conformance suite.
 
 When you finish a phase, tick its boxes in `docs/PLAN.md` and move anything
 deferred into `future-features.md`.
