@@ -127,8 +127,10 @@ runtime; deep live-testing of each backend pending.)
 True app-agnosticism.
 
 - [x] `os-daemon` (`ostd`): HTTP/JSON, `/health`, `/capabilities`, `/identify`,
-      `/search`, `/get`, the **OpenSubtitles-compatible** surface, and Sonarr/Radarr
-      **webhooks**. SSE progress stream — pending.
+      `/search`, `/get`, the **OpenSubtitles-compatible** surface, Sonarr/Radarr
+      **webhooks**, and the **wanted list + library scan** (`/scan`, `/wanted`,
+      `/wanted/run`, a background re-search scheduler). SSE progress stream —
+      pending.
 - [x] `os-ffi`: C-ABI (`libopensubtitle`) + a hand-written `opensubtitle.h`.
       WASM (`wasm-bindgen`) build — pending.
 - [ ] Example integrations (a tiny C and a JS caller) — pending.

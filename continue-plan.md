@@ -51,11 +51,14 @@ milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md); the contract in
 
 ## 2. Automation — finish `v0.4` (the flagship)
 
-- [ ] **Wanted list + scheduled re-search:** when an import has no sub yet (anime
-      often lags), record it and re-search on a timer until found. Needs small
-      persistent state (sqlite or a json file) + a scheduler in `ostd`.
-- [ ] **Library scan:** a `POST /scan` (or CLI `ost scan <dir>`) that walks a
-      media tree and fetches missing subs (Bazarr's bulk workflow).
+- [x] **Wanted list + scheduled re-search:** unfulfilled imports/scans are
+      recorded in `<cache>/wanted.json` (`os-daemon::wanted`) and re-searched by a
+      background scheduler in `ostd` every `automation.recheck_interval_secs`
+      until found. Webhook misses auto-enqueue. Endpoints: `GET/DELETE /wanted`,
+      `POST /wanted/run`, `POST /wanted/clear`.
+- [x] **Library scan:** `POST /scan` and CLI `ost scan <dir>` walk a media tree
+      (shared `os-engine::library`) and fetch missing subs (Bazarr's bulk
+      workflow), queuing anything still unfound.
 - [ ] **Auth for non-loopback:** optional bearer token when `ostd` binds beyond
       `127.0.0.1` (today localhost-only). Document.
 - [ ] Webhook hardening: dedupe repeated imports; honor `isUpgrade`; optional
@@ -140,7 +143,8 @@ milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md); the contract in
 
 1. `RELEASE_PLZ_TOKEN` secret + glibc `.so` leg (§0) — quick wins, closes the
    release pipeline gaps.
-2. **Wanted list + re-search** (§2) — finishes the automation flagship.
+2. ~~Wanted list + re-search (§2)~~ — **done** (the automation flagship landed).
+   Next in §2: non-loopback auth + webhook dedupe/`isUpgrade`.
 3. **TVDB refiner + Gestdown/TVsubtitles** (§3) — provider breadth, low-risk.
 4. **OSc `/login` + headers hardening** (§1) — makes the wedge a true drop-in.
 5. Then pick from processing (§4) or frontends (§5) per appetite.

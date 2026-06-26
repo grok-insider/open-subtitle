@@ -203,8 +203,52 @@ Response:
 ```json
 { "ok": true, "action": "import", "source": "radarr",
   "media": "Interstellar (2014)", "count": 1,
-  "downloaded": [ { "language": "en", "provider": "opensubtitles_org", "path": "…/Movie.en.srt" } ] }
+  "downloaded": [ { "language": "en", "provider": "opensubtitles_org", "path": "…/Movie.en.srt" } ],
+  "wanted": [] }
 ```
+`wanted` lists any languages that weren't found and were queued for re-search
+(see §5c). It is empty when everything requested was delivered.
+
+## 5c. Library scan + wanted list (`v0.4` automation flagship)
+
+Anime fansubs (and slow movie releases) often aren't available the moment a file
+is imported. `ostd` records imports/scans that still lack a subtitle in a
+persistent **wanted list** and re-searches them on a timer until found.
+
+| Method | Path | Body / query | Action |
+|--------|------|--------------|--------|
+| POST | `/scan` | `{ "dir", "languages"?, "recursive"?, "add_wanted"? }` | walk a library, fetch missing subs, queue the rest |
+| GET | `/wanted` | — | list the current wanted items |
+| POST | `/wanted/run` | — | force an immediate re-search of all pending items |
+| POST | `/wanted/clear` | — | empty the wanted list |
+| DELETE | `/wanted` | — | empty the wanted list |
+
+`POST /scan` walks `dir` (recursive by default), and for every video missing a
+subtitle in a requested language it downloads the best match and writes a sidecar
+next to the file. `languages` may be an array or a comma string (defaults to the
+config languages). `add_wanted` (default = `automation.track_wanted`) queues
+anything still unfound. Files are processed sequentially.
+
+```json
+{ "ok": true, "dir": "/media/tv", "recursive": true, "languages": ["en"],
+  "scanned": 312, "with_gaps": 7, "fetched_files": 5, "wanted_added": 2,
+  "results": [ { "file": "…/Show.S01E01.mkv", "media": "Show - S01E01",
+                 "fetched": [ { "language": "en", "provider": "…", "path": "…" } ],
+                 "still_missing": [] } ] }
+```
+
+A background scheduler re-searches due items every
+`automation.recheck_interval_secs` (default 6h), dropping each language as it's
+delivered and removing the item once complete. `automation.max_attempts` caps
+retries (`0` = unlimited). A wanted item:
+```json
+{ "key": "path:/media/tv/Show.S01E01.mkv", "path": "…", "kind": "series",
+  "season": 1, "episode": 1, "languages": ["en"], "label": "Show - S01E01",
+  "source": "webhook:sonarr", "added_at": 1730000000, "last_attempt": 1730000000,
+  "attempts": 1 }
+```
+State persists to `<cache>/open-subtitle/wanted.json`. The CLI mirrors the one-shot
+half via `ost scan <dir>` (`--dry-run`, `--no-recursive`, `-l`, `--hi`, `--json`).
 
 ## 6. Error model (planned `v1`)
 
