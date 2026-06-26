@@ -9,21 +9,27 @@
 //!   GET  /osc/file/<id>        → subtitle bytes
 
 mod osc;
+mod scan;
+mod wanted;
 mod webhook;
 
 use os_compose::build_engine;
 use os_config::Config;
 use os_core::ports::{MediaInput, ProcessOpts};
-use os_core::{CoreError, Language, Media, MediaKind, SubtitleCandidate};
+use os_core::{CoreError, CoreResult, Language, Media, MediaKind, SubtitleCandidate};
 use os_engine::Engine;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tiny_http::{Header, Method, Response, Server};
+use wanted::{now_secs, WantedItem, WantedStore};
 
 /// file_id → candidate, so a client can download a previously-searched result.
 type Registry = Arc<Mutex<HashMap<u64, SubtitleCandidate>>>;
+
+/// Shared handle to the persistent wanted list.
+type Store = Arc<WantedStore>;
 
 const REGISTRY_CAP: usize = 20_000;
 
@@ -94,9 +100,31 @@ fn main() -> anyhow::Result<()> {
     let engine = Arc::new(build_engine(&cfg).map_err(anyhow::Error::msg)?);
     let registry: Registry = Arc::new(Mutex::new(HashMap::new()));
 
+    let wanted_path = Config::cache_dir()
+        .map(|c| c.join("wanted.json"))
+        .unwrap_or_else(|_| PathBuf::from("wanted.json"));
+    let store: Store = Arc::new(WantedStore::load(wanted_path));
+
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
+
+    // Background re-search of the wanted list (anime/slow releases that weren't
+    // available at import time). Runs on a plain thread that drives the shared
+    // runtime, so it's independent of the request loop.
+    if cfg.automation.enabled
+        && cfg.automation.track_wanted
+        && cfg.automation.recheck_interval_secs > 0
+    {
+        let handle = runtime.handle().clone();
+        let (s_engine, s_cfg, s_store) = (engine.clone(), cfg.clone(), store.clone());
+        std::thread::spawn(move || scheduler_loop(handle, s_engine, s_cfg, s_store));
+        eprintln!(
+            "ostd: wanted-list scheduler on (every {}s, {} item(s) pending)",
+            cfg.automation.recheck_interval_secs,
+            store.len()
+        );
+    }
 
     let server = Server::http(&addr).map_err(|e| anyhow::anyhow!("bind {addr}: {e}"))?;
     eprintln!(
@@ -117,7 +145,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         let out = runtime.block_on(handle(
-            &engine, &cfg, &registry, &base_url, &method, &path, &params, &body,
+            &engine, &cfg, &registry, &store, &base_url, &method, &path, &params, &body,
         ));
 
         let header = Header::from_bytes(&b"Content-Type"[..], out.content_type.as_bytes())
@@ -137,6 +165,7 @@ async fn handle(
     engine: &Engine,
     cfg: &Config,
     registry: &Registry,
+    store: &Store,
     base_url: &str,
     method: &Method,
     path: &str,
@@ -192,14 +221,45 @@ async fn handle(
             if !matches!(method, Method::Post) {
                 return Out::error(405, "unsupported", "POST required");
             }
-            handle_webhook(engine, cfg, body).await
+            handle_webhook(engine, cfg, store, body).await
+        }
+
+        // ---- library scan + wanted list (the v0.4 automation flagship) ----
+        "/scan" => {
+            if !matches!(method, Method::Post) {
+                return Out::error(405, "unsupported", "POST required");
+            }
+            scan::handle(engine, cfg, store, body).await
+        }
+        "/wanted" => match method {
+            Method::Get => wanted_list(store),
+            Method::Delete => {
+                let n = store.len();
+                store.clear();
+                Out::json(json!({ "ok": true, "cleared": n }))
+            }
+            _ => Out::error(405, "unsupported", "GET or DELETE"),
+        },
+        "/wanted/clear" => {
+            if !matches!(method, Method::Post) {
+                return Out::error(405, "unsupported", "POST required");
+            }
+            let n = store.len();
+            store.clear();
+            Out::json(json!({ "ok": true, "cleared": n }))
+        }
+        "/wanted/run" => {
+            if !matches!(method, Method::Post) {
+                return Out::error(405, "unsupported", "POST required");
+            }
+            wanted_run_now(engine, cfg, store).await
         }
 
         _ => Out::error(404, "not_found", format!("unknown endpoint: {path}")),
     }
 }
 
-async fn handle_webhook(engine: &Engine, cfg: &Config, body: &str) -> Out {
+async fn handle_webhook(engine: &Engine, cfg: &Config, store: &Store, body: &str) -> Out {
     let payload: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
         Err(e) => return Out::error(400, "parse", format!("invalid JSON: {e}")),
@@ -213,90 +273,205 @@ async fn handle_webhook(engine: &Engine, cfg: &Config, body: &str) -> Out {
             if !cfg.automation.enabled {
                 return Out::json(json!({ "ok": true, "action": "disabled" }));
             }
-            run_import(engine, cfg, *job).await
+            run_import(engine, cfg, store, *job).await
         }
     }
 }
 
-async fn run_import(engine: &Engine, cfg: &Config, job: webhook::Job) -> Out {
-    let langs: Vec<Language> = cfg
-        .automation
-        .languages_or(&cfg.languages)
-        .iter()
-        .filter_map(|c| Language::parse(c))
-        .collect();
-    if langs.is_empty() {
-        return Out::error(400, "config", "no languages configured");
-    }
+/// `GET /wanted` — the current wanted list (visibility + debugging).
+fn wanted_list(store: &Store) -> Out {
+    let items = store.list();
+    Out::json(json!({
+        "ok": true,
+        "count": items.len(),
+        "items": serde_json::to_value(&items).unwrap_or_default(),
+    }))
+}
 
-    // Resolve the (possibly remapped) media path.
-    let mapped = job.file_path.as_ref().map(|p| cfg.automation.remap(p));
-    let file_exists = mapped
-        .as_ref()
+/// `POST /wanted/run` — force an immediate re-search of every pending item
+/// (ignoring the timer), honoring only the attempt cap.
+async fn wanted_run_now(engine: &Engine, cfg: &Config, store: &Store) -> Out {
+    if store.is_empty() {
+        return Out::json(json!({
+            "ok": true, "processed": 0, "delivered": 0, "satisfied": 0, "remaining": 0,
+        }));
+    }
+    let cap = cfg.automation.max_attempts;
+    let items: Vec<WantedItem> = store
+        .list()
+        .into_iter()
+        .filter(|i| cap == 0 || i.attempts < cap)
+        .collect();
+    let mut satisfied = 0usize;
+    let mut delivered_total = 0usize;
+    for item in &items {
+        let got = recheck_one(engine, cfg, store, item.clone()).await;
+        delivered_total += got;
+        if got > 0 && !store.list().iter().any(|i| i.key == item.key) {
+            satisfied += 1;
+        }
+    }
+    Out::json(json!({
+        "ok": true, "processed": items.len(),
+        "delivered": delivered_total, "satisfied": satisfied,
+        "remaining": store.len(),
+    }))
+}
+
+/// A normalized request to fetch subtitles, shared by webhook imports, library
+/// scans, and the wanted-list re-search loop. `path` is the media file (used for
+/// hashing + sidecar placement when reachable); `query` is the title fallback
+/// when it isn't.
+#[derive(Debug, Clone, Default)]
+pub struct FetchTarget {
+    pub path: Option<String>,
+    pub query: Option<String>,
+    pub kind: Option<MediaKind>,
+    pub season: Option<u32>,
+    pub episode: Option<u32>,
+    pub imdb: Option<String>,
+    pub tmdb: Option<u64>,
+    pub series_imdb: Option<String>,
+    pub series_tvdb: Option<u64>,
+    pub episode_title: Option<String>,
+}
+
+/// The result of a fetch: what we identified, what we wrote, and which requested
+/// languages are still missing (the wanted-list driver).
+pub struct FetchOutcome {
+    pub media: Media,
+    pub written: Vec<serde_json::Value>,
+    pub fetched: usize,
+    /// alpha-2 tags actually written to disk this pass.
+    pub delivered: Vec<String>,
+    /// alpha-2 tags requested but not delivered.
+    pub missing: Vec<String>,
+}
+
+/// Identify → overlay ids → download best per language → write sidecars. Shared
+/// by every automation surface so they behave identically. `NotFound` is treated
+/// as "nothing available yet" (empty), not an error; other errors propagate.
+pub async fn fetch_for_target(
+    engine: &Engine,
+    cfg: &Config,
+    target: &FetchTarget,
+    langs: &[Language],
+) -> CoreResult<FetchOutcome> {
+    let file_exists = target
+        .path
+        .as_deref()
         .map(|p| Path::new(p).is_file())
         .unwrap_or(false);
 
+    // With an explicit title we identify by query; otherwise from the filename.
+    let (name, query) = match &target.query {
+        Some(q) => (None, Some(q.clone())),
+        None if file_exists => (
+            target.path.as_ref().and_then(|p| {
+                Path::new(p)
+                    .file_name()
+                    .map(|s| s.to_string_lossy().into_owned())
+            }),
+            None,
+        ),
+        None => (None, None),
+    };
     let input = MediaInput {
         path: if file_exists {
-            mapped.as_ref().map(PathBuf::from)
+            target.path.as_ref().map(PathBuf::from)
         } else {
             None
         },
-        name: None,
-        query: Some(job.title.clone()),
-        kind_hint: Some(job.kind),
-        season: job.season,
-        episode: job.episode,
+        name,
+        query,
+        kind_hint: target.kind,
+        season: target.season,
+        episode: target.episode,
     };
-    let mut media = match engine.identify(&input).await {
-        Ok(m) => m,
-        Err(e) => return err_from_core(&e),
-    };
+    let mut media = engine.identify(&input).await?;
+    if let Some(k) = target.kind {
+        media.kind = k; // the payload's kind is authoritative.
+    }
 
-    // Overlay the *arr-authoritative ids + episode title.
-    match job.kind {
+    // Overlay the caller-authoritative ids + episode title.
+    match media.kind {
         MediaKind::Movie => {
-            if job.imdb.is_some() {
-                media.ids.imdb = job.imdb.clone();
+            if target.imdb.is_some() {
+                media.ids.imdb = target.imdb.clone();
             }
-            if job.tmdb.is_some() {
-                media.ids.tmdb = job.tmdb;
+            if target.tmdb.is_some() {
+                media.ids.tmdb = target.tmdb;
             }
         }
         _ => {
-            if job.series_imdb.is_some() {
-                media.ids.series_imdb = job.series_imdb.clone();
+            if target.series_imdb.is_some() {
+                media.ids.series_imdb = target.series_imdb.clone();
             }
-            if job.series_tvdb.is_some() {
-                media.ids.series_tvdb = job.series_tvdb;
+            if target.series_tvdb.is_some() {
+                media.ids.series_tvdb = target.series_tvdb;
             }
         }
     }
-    if media.episode_title.is_none() {
-        media.episode_title = job.episode_title.clone();
+    if media.episode_title.is_none() && target.episode_title.is_some() {
+        media.episode_title = target.episode_title.clone();
     }
 
     let opts = process_opts(cfg);
-    let files = match engine.download_best(&media, &langs, &opts).await {
+    let files = match engine.download_best(&media, langs, &opts).await {
         Ok(f) => f,
         Err(CoreError::NotFound) => Vec::new(),
-        Err(e) => return err_from_core(&e),
+        Err(e) => return Err(e),
     };
 
-    let summary = |written: serde_json::Value, count: usize| {
-        Out::json(json!({
-            "ok": true, "action": "import", "source": job.source,
-            "media": media.label(), "count": count, "downloaded": written,
-        }))
-    };
-
-    if files.is_empty() {
-        return summary(json!([]), 0);
+    let (dir, stem) = write_target(cfg, target.path.as_deref(), file_exists, &media);
+    let mut written = Vec::new();
+    let mut delivered = Vec::new();
+    if !files.is_empty() {
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            return Err(CoreError::Io(format!("create dir {}: {e}", dir.display())));
+        }
+        for f in &files {
+            let dest = dir.join(f.sidecar_name(&stem));
+            match std::fs::write(&dest, &f.text) {
+                Ok(()) => {
+                    delivered.push(f.language.alpha2());
+                    written.push(json!({
+                        "language": f.language.display_tag(), "provider": f.provider,
+                        "path": dest.to_string_lossy(),
+                    }));
+                }
+                Err(e) => {
+                    written.push(json!({ "error": format!("write {}: {e}", dest.display()) }))
+                }
+            }
+        }
     }
 
-    // Where to write: next to the file if reachable, else the fallback dir.
-    let (dir, stem) = if file_exists {
-        let pp = Path::new(mapped.as_ref().unwrap());
+    let missing: Vec<String> = langs
+        .iter()
+        .map(|l| l.alpha2())
+        .filter(|a| !delivered.iter().any(|d| d.eq_ignore_ascii_case(a)))
+        .collect();
+
+    Ok(FetchOutcome {
+        media,
+        written,
+        fetched: files.len(),
+        delivered,
+        missing,
+    })
+}
+
+/// Where to write sidecars: next to the media file when reachable, else the
+/// configured fallback dir (or the cache).
+fn write_target(
+    cfg: &Config,
+    path: Option<&str>,
+    file_exists: bool,
+    media: &Media,
+) -> (PathBuf, String) {
+    if file_exists {
+        let pp = Path::new(path.unwrap_or("."));
         (
             pp.parent()
                 .map(|d| d.to_path_buf())
@@ -317,23 +492,163 @@ async fn run_import(engine: &Engine, cfg: &Config, job: webhook::Job) -> Out {
                     .unwrap_or_else(|_| PathBuf::from("."))
             });
         (dir, sanitize_stem(&media.label()))
-    };
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        return Out::error(500, "io", format!("create dir: {e}"));
     }
+}
 
-    let mut written = Vec::new();
-    for f in &files {
-        let dest = dir.join(f.sidecar_name(&stem));
-        match std::fs::write(&dest, &f.text) {
-            Ok(()) => written.push(json!({
-                "language": f.language.display_tag(), "provider": f.provider,
-                "path": dest.to_string_lossy(),
-            })),
-            Err(e) => written.push(json!({ "error": format!("write {}: {e}", dest.display()) })),
+/// Build a [`WantedItem`] from an identified media + the still-missing languages.
+/// `attempted` marks whether a fetch was just tried (so the timer starts now).
+pub fn wanted_from(
+    media: &Media,
+    target: &FetchTarget,
+    missing: &[String],
+    source: &str,
+    attempted: bool,
+) -> WantedItem {
+    let now = now_secs();
+    WantedItem {
+        key: WantedItem::make_key(
+            target.path.as_deref(),
+            target.query.as_deref(),
+            media.kind,
+            media.season,
+            media.episode_num(),
+        ),
+        path: target.path.clone(),
+        query: target.query.clone(),
+        kind: media.kind,
+        season: media.season,
+        episode: media.episode_num(),
+        imdb: media.ids.imdb.clone(),
+        tmdb: media.ids.tmdb,
+        series_imdb: media.ids.series_imdb.clone(),
+        series_tvdb: media.ids.series_tvdb,
+        episode_title: media.episode_title.clone(),
+        languages: missing.to_vec(),
+        label: media.label(),
+        source: source.into(),
+        added_at: now,
+        last_attempt: if attempted { now } else { 0 },
+        attempts: u32::from(attempted),
+    }
+}
+
+fn target_from_item(item: &WantedItem) -> FetchTarget {
+    FetchTarget {
+        path: item.path.clone(),
+        query: item.query.clone(),
+        kind: Some(item.kind),
+        season: item.season,
+        episode: item.episode,
+        imdb: item.imdb.clone(),
+        tmdb: item.tmdb,
+        series_imdb: item.series_imdb.clone(),
+        series_tvdb: item.series_tvdb,
+        episode_title: item.episode_title.clone(),
+    }
+}
+
+/// Re-search one wanted item; prune delivered languages (removing the item when
+/// satisfied) and always bump its attempt bookkeeping. Returns the count
+/// delivered this pass.
+async fn recheck_one(engine: &Engine, cfg: &Config, store: &Store, item: WantedItem) -> usize {
+    let langs: Vec<Language> = item
+        .languages
+        .iter()
+        .filter_map(|c| Language::parse(c))
+        .collect();
+    if langs.is_empty() {
+        store.remove(&item.key);
+        return 0;
+    }
+    let target = target_from_item(&item);
+    match fetch_for_target(engine, cfg, &target, &langs).await {
+        Ok(outcome) => {
+            let n = outcome.delivered.len();
+            let satisfied = store.record_result(&item.key, &outcome.delivered, now_secs());
+            if satisfied {
+                eprintln!("ostd: wanted satisfied — {}", item.label);
+            } else if n > 0 {
+                eprintln!("ostd: wanted partial — {} (+{n})", item.label);
+            }
+            n
+        }
+        Err(e) => {
+            // Transient (network/throttle): keep the item, bump the attempt.
+            eprintln!("ostd: wanted recheck failed — {}: {e}", item.label);
+            store.record_result(&item.key, &[], now_secs());
+            0
         }
     }
-    summary(serde_json::Value::Array(written), files.len())
+}
+
+/// Background loop: every `recheck_interval_secs`, re-search the due items.
+fn scheduler_loop(
+    handle: tokio::runtime::Handle,
+    engine: Arc<Engine>,
+    cfg: Arc<Config>,
+    store: Store,
+) {
+    let interval = cfg.automation.recheck_interval_secs.max(1);
+    let tick = std::time::Duration::from_secs(interval);
+    loop {
+        std::thread::sleep(tick);
+        let due = store.due(now_secs(), interval, cfg.automation.max_attempts);
+        if due.is_empty() {
+            continue;
+        }
+        eprintln!("ostd: wanted re-search — {} item(s) due", due.len());
+        for item in due {
+            handle.block_on(recheck_one(&engine, &cfg, &store, item));
+        }
+    }
+}
+
+async fn run_import(engine: &Engine, cfg: &Config, store: &Store, job: webhook::Job) -> Out {
+    let langs: Vec<Language> = cfg
+        .automation
+        .languages_or(&cfg.languages)
+        .iter()
+        .filter_map(|c| Language::parse(c))
+        .collect();
+    if langs.is_empty() {
+        return Out::error(400, "config", "no languages configured");
+    }
+
+    let target = FetchTarget {
+        path: job.file_path.as_ref().map(|p| cfg.automation.remap(p)),
+        query: Some(job.title.clone()),
+        kind: Some(job.kind),
+        season: job.season,
+        episode: job.episode,
+        imdb: job.imdb.clone(),
+        tmdb: job.tmdb,
+        series_imdb: job.series_imdb.clone(),
+        series_tvdb: job.series_tvdb,
+        episode_title: job.episode_title.clone(),
+    };
+
+    let outcome = match fetch_for_target(engine, cfg, &target, &langs).await {
+        Ok(o) => o,
+        Err(e) => return err_from_core(&e),
+    };
+
+    // Record any still-missing languages for scheduled re-search.
+    if !outcome.missing.is_empty() && cfg.automation.track_wanted {
+        store.upsert(wanted_from(
+            &outcome.media,
+            &target,
+            &outcome.missing,
+            &format!("webhook:{}", job.source),
+            true,
+        ));
+    }
+
+    Out::json(json!({
+        "ok": true, "action": "import", "source": job.source,
+        "media": outcome.media.label(), "count": outcome.fetched,
+        "downloaded": serde_json::Value::Array(outcome.written),
+        "wanted": outcome.missing,
+    }))
 }
 
 fn sanitize_stem(s: &str) -> String {
