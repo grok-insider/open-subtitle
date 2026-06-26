@@ -10,9 +10,21 @@
 
 # Editor / OS
 .DS_Store
+Thumbs.db
 *.swp
+*~
+*.bak
+*.tmp
 .idea/
 .vscode/
+
+# Logs / runtime
+*.log
+nohup.out
+
+# Local env / secrets
+.env
+.env.*
 
 # Local secrets / runtime state (NEVER commit)
 config.toml
