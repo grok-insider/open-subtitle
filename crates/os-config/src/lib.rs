@@ -49,6 +49,15 @@ pub struct AutomationConfig {
     pub path_map: Vec<PathMap>,
     /// Fallback directory for sidecars when the media file isn't reachable.
     pub output_dir: Option<String>,
+    /// Record imports/scans that still lack a subtitle in a persistent "wanted"
+    /// list and have `ostd` re-search them on a timer until found. Anime fansubs
+    /// often lag a release, so a one-shot fetch frequently comes up empty.
+    pub track_wanted: bool,
+    /// How often the daemon re-searches each unfulfilled wanted item, in seconds.
+    /// Also the minimum age before an item is retried. `0` disables the scheduler.
+    pub recheck_interval_secs: u64,
+    /// Give up on a wanted item after this many attempts (`0` = never give up).
+    pub max_attempts: u32,
 }
 
 impl Default for AutomationConfig {
@@ -58,6 +67,9 @@ impl Default for AutomationConfig {
             languages: Vec::new(),
             path_map: Vec::new(),
             output_dir: None,
+            track_wanted: true,
+            recheck_interval_secs: 6 * 60 * 60, // 6h
+            max_attempts: 0,
         }
     }
 }
@@ -313,6 +325,27 @@ mod tests {
         let c = Config::default();
         assert!(c.automation.enabled);
         assert!(c.automation.path_map.is_empty());
+        // Wanted-list tracking is on by default with a 6h re-search cadence and
+        // no attempt cap.
+        assert!(c.automation.track_wanted);
+        assert_eq!(c.automation.recheck_interval_secs, 6 * 60 * 60);
+        assert_eq!(c.automation.max_attempts, 0);
+    }
+
+    #[test]
+    fn automation_wanted_fields_roundtrip() {
+        let text = r#"
+            [automation]
+            track_wanted = false
+            recheck_interval_secs = 1800
+            max_attempts = 12
+        "#;
+        let c: Config = toml::from_str(text).unwrap();
+        assert!(!c.automation.track_wanted);
+        assert_eq!(c.automation.recheck_interval_secs, 1800);
+        assert_eq!(c.automation.max_attempts, 12);
+        // Untouched automation fields keep their defaults.
+        assert!(c.automation.enabled);
     }
 
     #[test]
