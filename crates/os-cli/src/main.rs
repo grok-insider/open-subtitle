@@ -8,6 +8,8 @@ use os_compose::build_engine;
 use os_config::Config;
 use os_core::ports::{MediaInput, ProcessOpts};
 use os_core::{Language, MediaKind};
+use os_engine::library;
+use serde_json::json;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -43,6 +45,8 @@ enum Command {
     Get(GetArgs),
     /// One-shot: identify → download → sync → (transcribe fallback).
     Auto(GetArgs),
+    /// Scan a library directory and fetch subtitles for videos missing them.
+    Scan(ScanArgs),
     /// Sync an existing subtitle file to a video (needs a sync backend).
     Sync(SyncArgs),
     /// Translate an existing subtitle file to a target language.
@@ -111,6 +115,26 @@ struct GetArgs {
 }
 
 #[derive(Parser)]
+struct ScanArgs {
+    /// Library directory to walk.
+    dir: PathBuf,
+    /// Comma-separated language preference, e.g. `en,es` (defaults to config).
+    #[arg(long, short = 'l')]
+    langs: Option<String>,
+    /// Don't descend into subdirectories.
+    #[arg(long)]
+    no_recursive: bool,
+    /// Strip hearing-impaired cues from downloaded subtitles.
+    #[arg(long)]
+    hi: bool,
+    /// Only report which videos are missing subtitles; download nothing.
+    #[arg(long)]
+    dry_run: bool,
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Parser)]
 struct SyncArgs {
     /// Subtitle file to sync.
     subtitle: PathBuf,
@@ -159,6 +183,7 @@ async fn main() -> Result<()> {
         Command::Search(args) => cmd_search(&config_path, args).await,
         Command::Get(args) => cmd_get(&config_path, args, false).await,
         Command::Auto(args) => cmd_get(&config_path, args, true).await,
+        Command::Scan(args) => cmd_scan(&config_path, args).await,
         Command::Sync(args) => cmd_sync(&config_path, args).await,
         Command::Translate(args) => cmd_translate(&config_path, args).await,
     }
@@ -405,6 +430,147 @@ async fn cmd_get(path: &Path, args: GetArgs, auto_mode: bool) -> Result<()> {
                 w["path"].as_str().unwrap_or("")
             );
         }
+    }
+    Ok(())
+}
+
+async fn cmd_scan(path: &Path, args: ScanArgs) -> Result<()> {
+    let cfg = Config::load(path)?;
+    let langs = parse_langs(&args.langs, &cfg);
+    if langs.is_empty() {
+        anyhow::bail!("no languages specified (use -l en,es or set languages in config)");
+    }
+    if !args.dir.is_dir() {
+        anyhow::bail!("not a directory: {}", args.dir.display());
+    }
+
+    let opts = ProcessOpts {
+        to_utf8: cfg.process.to_utf8,
+        target_format: Some(cfg.process.format.clone()),
+        remove_hi: args.hi || cfg.process.remove_hi,
+        language: None,
+    };
+
+    let recursive = !args.no_recursive;
+    let videos = library::walk_videos(&args.dir, recursive);
+    let scanned = videos.len();
+
+    let engine = build_engine(&cfg).map_err(anyhow::Error::msg)?;
+
+    let mut results = Vec::new();
+    let mut with_gaps = 0usize;
+    let mut fetched_files = 0usize;
+
+    for video in &videos {
+        let missing = library::missing_languages(video, &langs);
+        if missing.is_empty() {
+            continue;
+        }
+        with_gaps += 1;
+        let missing_tags: Vec<String> = missing.iter().map(|l| l.display_tag()).collect();
+
+        if args.dry_run {
+            if !args.json {
+                println!("missing [{}] {}", missing_tags.join(","), video.display());
+            }
+            results.push(json!({
+                "file": video.to_string_lossy(),
+                "missing": missing_tags,
+            }));
+            continue;
+        }
+
+        let input = make_input(&video.to_string_lossy(), None, None, None);
+        let media = match engine.identify(&input).await {
+            Ok(m) => m,
+            Err(e) => {
+                if !args.json {
+                    eprintln!("identify failed for {}: {e}", video.display());
+                }
+                results.push(json!({ "file": video.to_string_lossy(), "error": e.to_string() }));
+                continue;
+            }
+        };
+        let files = match engine.download_best(&media, &missing, &opts).await {
+            Ok(f) => f,
+            Err(os_core::CoreError::NotFound) => Vec::new(),
+            Err(e) => {
+                results.push(json!({ "file": video.to_string_lossy(), "error": e.to_string() }));
+                continue;
+            }
+        };
+
+        let dir = video
+            .parent()
+            .map(|d| d.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        let stem = video
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "subtitle".into());
+
+        let mut written = Vec::new();
+        for f in &files {
+            let dest = dir.join(f.sidecar_name(&stem));
+            match std::fs::write(&dest, &f.text) {
+                Ok(()) => {
+                    fetched_files += 1;
+                    if !args.json {
+                        println!(
+                            "downloaded {} [{}] -> {}",
+                            f.language.display_tag(),
+                            f.provider,
+                            dest.display()
+                        );
+                    }
+                    written.push(json!({
+                        "language": f.language.display_tag(),
+                        "provider": f.provider,
+                        "path": dest.to_string_lossy(),
+                    }));
+                }
+                Err(e) => {
+                    written.push(json!({ "error": format!("write {}: {e}", dest.display()) }))
+                }
+            }
+        }
+        let still_missing: Vec<String> = missing
+            .iter()
+            .filter(|l| !files.iter().any(|f| f.language.same_language(l)))
+            .map(|l| l.display_tag())
+            .collect();
+        results.push(json!({
+            "file": video.to_string_lossy(),
+            "media": media.label(),
+            "fetched": written,
+            "still_missing": still_missing,
+        }));
+    }
+
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({
+                "dir": args.dir.to_string_lossy(),
+                "recursive": recursive,
+                "languages": langs.iter().map(|l| l.alpha2()).collect::<Vec<_>>(),
+                "scanned": scanned,
+                "with_gaps": with_gaps,
+                "fetched_files": fetched_files,
+                "results": results,
+            }))?
+        );
+    } else if args.dry_run {
+        println!(
+            "scanned {scanned} video(s); {with_gaps} missing one or more of [{}]",
+            langs
+                .iter()
+                .map(|l| l.alpha2())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+    } else {
+        println!("scanned {scanned} video(s); fetched {fetched_files} subtitle(s) for {with_gaps} file(s) with gaps");
     }
     Ok(())
 }
