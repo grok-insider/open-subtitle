@@ -120,6 +120,9 @@ standard), and [docs/PROTOCOL.md](docs/PROTOCOL.md) for the integration contract
 - **Translate** into your language — **local/offline first** (LibreTranslate or
   the host's own translation stack), with optional cloud/LLM backends.
 - **Transcribe** from audio (Whisper) when no subtitle exists anywhere.
+- **Automate** a whole library: Sonarr/Radarr webhooks, `ost scan <dir>` / `POST
+  /scan` bulk fetch, and a **wanted list** that re-searches anything still missing
+  on a timer until it's found.
 - **Serve all of the above** to any app via CLI, HTTP/JSON, FFI, or the mpv plugin.
 
 ## Frontends (integration surfaces)
