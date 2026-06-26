@@ -15,7 +15,7 @@ name: Release
 #                           (x86_64/arm64), and Windows (x86_64), and attach them.
 #
 # Cachix is handled in ci.yml's `build` job (same master push) — it pushes the
-# x86_64-linux closure to 0xfell.cachix.org. Nothing is published to crates.io
+# x86_64-linux closure to grok-insider.cachix.org. Nothing is published to crates.io
 # (see `git_only` in release-plz.toml).
 
 on:
@@ -28,7 +28,7 @@ permissions:
 jobs:
   release-plz-pr:
     name: release-plz PR
-    if: github.repository_owner == '0xfell'
+    if: github.repository_owner == 'grok-insider'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -56,7 +56,7 @@ jobs:
 
   release-plz-release:
     name: release-plz release
-    if: github.repository_owner == '0xfell'
+    if: github.repository_owner == 'grok-insider'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -198,7 +198,7 @@ jobs:
           mpv plugin: copy open-subtitle.lua into ~/.config/mpv/scripts/ and keep ost on PATH.
           C library: libopensubtitle.* + opensubtitle.h (JSON in/out).
 
-          Docs: https://github.com/0xfell/open-subtitle
+          Docs: https://github.com/grok-insider/open-subtitle
           EOF
           archive="$stage.tar.gz"
           tar -czf "$archive" "$stage"
@@ -229,7 +229,7 @@ jobs:
           mpv plugin: copy open-subtitle.lua into %APPDATA%\mpv\scripts\ and keep ost on PATH.
           C library: opensubtitle.dll + opensubtitle.h (JSON in/out).
 
-          Docs: https://github.com/0xfell/open-subtitle
+          Docs: https://github.com/grok-insider/open-subtitle
           "@ | Out-File -FilePath "$stage/INSTALL.txt" -Encoding ascii
           $archive = "$stage.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $archive -Force

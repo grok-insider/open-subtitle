@@ -10,7 +10,7 @@
 #
 # Nothing is published to crates.io: delivery is the GitHub Release (prebuilt
 # binaries for Linux/macOS/Windows + libopensubtitle + the mpv plugin) and the
-# 0xfell cachix cache — `flake.nix` reads the same version from Cargo.toml.
+# grok-insider cachix cache — `flake.nix` reads the same version from Cargo.toml.
 
 [workspace]
 # Not on crates.io: determine the current version from the `v*` git tag instead

@@ -18,7 +18,7 @@ tested (see `CHANGELOG.md`):
   surface, and **Sonarr/Radarr webhooks**), the `libopensubtitle` C-ABI, and the
   mpv plugin (verified loading subtitles in real mpv).
 - **Distribution:** **v0.1.0 released** with prebuilt binaries for Linux
-  (x86_64/aarch64), macOS (x86_64/arm64), and Windows; Nix/Cachix (`0xfell`),
+  (x86_64/aarch64), macOS (x86_64/arm64), and Windows; Nix/Cachix (`grok-insider`),
   release-plz, and branch-protected CI (PR + green checks required).
 - **Contract:** `docs/PROTOCOL.md` + JSON Schemas under `docs/schemas/`.
 
@@ -59,7 +59,7 @@ Own the recurring use case without rebuilding a UI.
 - Caching + resilience hardening.
 
 ### `v0.5` — "Stable & packaged" (freeze `v1`)
-- ✅ **Release pipeline**: Nix/Cachix (`0xfell`) + release-plz + a GitHub Actions
+- ✅ **Release pipeline**: Nix/Cachix (`grok-insider`) + release-plz + a GitHub Actions
   cross-platform matrix shipping prebuilt `ost`/`ostd`/`libopensubtitle` + the mpv
   plugin for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows — delivered.
 - ✅ **Branch-protected CI**: `master` requires a PR + a green `fmt + clippy +

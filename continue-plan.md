@@ -23,7 +23,7 @@ milestones in [`docs/ROADMAP.md`](docs/ROADMAP.md); the contract in
       leg (or a dedicated lib job) so a dynamic `.so` ships for glibc Linux too.
       (macOS/Windows archives already include `.dylib`/`.dll`.)
 - [ ] **open-media parity (optional):** apply the same branch protection +
-      `release.yml` token fallback to `0xfell/open-media` (it's also unprotected).
+      `release.yml` token fallback to `grok-insider/open-media` (it's also unprotected).
 - [ ] **cargo-dist installers (later):** layer `cargo-dist` on top for one-line
       `curl|sh` / PowerShell installers + a Homebrew tap, keeping release-plz for
       versioning. Note: cargo-dist doesn't package the cdylib/staticlib — keep the

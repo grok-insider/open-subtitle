@@ -150,7 +150,7 @@ Breadth + resilience.
 ## Phase 10 — Packaging, CI, docs [~]
 Release-ready.
 
-- [x] CI: `fmt` + `clippy` + hermetic `test`; Nix build + cachix push (`0xfell`).
+- [x] CI: `fmt` + `clippy` + hermetic `test`; Nix build + cachix push (`grok-insider`).
 - [x] Cross-compiled release artifacts: Linux (x86_64/aarch64 static musl), macOS
       (x86_64/arm64), Windows (x86_64) — via release-plz + a GitHub Actions matrix.
 - [x] release-plz versioning/changelog + Nix flake/HM module; SHA-256 checksums.

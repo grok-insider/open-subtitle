@@ -157,7 +157,7 @@ Smoke-test without touching real config by setting a throwaway `XDG_CONFIG_HOME`
   test`** check must pass (admins included — no direct pushes). The master-only
   `nix build + cachix push` job is *not* a required check (it's skipped on PRs).
 - **CI** (`.github/workflows/ci.yml`): fmt + clippy + hermetic tests on every PR;
-  on master/tags it also `nix build`s and pushes the closure to the `0xfell`
+  on master/tags it also `nix build`s and pushes the closure to the `grok-insider`
   cachix cache.
 - **Releases** (`.github/workflows/release.yml` + `release-plz.toml`):
   **release-plz** keeps a "release PR" updated (single workspace version driven by
@@ -204,7 +204,7 @@ deferred into `future-features.md`.
 
 ## Conventions
 
-- Repo: `github.com/0xfell/open-subtitle`. Binaries: `ost` (CLI), `ostd` (daemon).
+- Repo: `github.com/grok-insider/open-subtitle`. Binaries: `ost` (CLI), `ostd` (daemon).
   Library/FFI: `libopensubtitle`.
 - Crate prefix `os-`. Provider modules are lowercase source names
   (`opensubtitles_org.rs`, `subdl.rs`, `jimaku.rs`).
