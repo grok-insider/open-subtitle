@@ -6,7 +6,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0](https://github.com/0xfell/open-subtitle/releases/tag/v0.1.0) - 2026-06-25
+## [0.1.0](https://github.com/grok-insider/open-subtitle/releases/tag/v0.1.0) - 2026-06-25
 
 ### Added
 
@@ -16,7 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Release & distribution pipeline (Nix/Cachix + GitHub Actions + release-plz).**
   - `flake.nix` — builds `ost` + `ostd` + `libopensubtitle` (+ `opensubtitle.h`)
-    and bundles the mpv plugin; reuses the `0xfell` cachix cache; ships a Home
+    and bundles the mpv plugin; reuses the `grok-insider` cachix cache; ships a Home
     Manager module (`programs.open-subtitle` with `mpv.enable` and an optional
     `daemon.enable` systemd user service) and a dev shell. (ring → no
     cmake/clang needed.)
@@ -133,4 +133,4 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `AGENTS.md` — contributor/agent guide, module layout, dependency rule.
   - `CONTRIBUTING.md`, `future-features.md`, `LICENSE` (MIT), `.gitignore`.
 
-[Unreleased]: https://github.com/0xfell/open-subtitle/commits/master
+[Unreleased]: https://github.com/grok-insider/open-subtitle/commits/master

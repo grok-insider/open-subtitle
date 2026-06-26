@@ -1,7 +1,7 @@
 # open-subtitle
 
-[![CI](https://github.com/0xfell/open-subtitle/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfell/open-subtitle/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/0xfell/open-subtitle?sort=semver)](https://github.com/0xfell/open-subtitle/releases/latest)
+[![CI](https://github.com/grok-insider/open-subtitle/actions/workflows/ci.yml/badge.svg)](https://github.com/grok-insider/open-subtitle/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/grok-insider/open-subtitle?sort=semver)](https://github.com/grok-insider/open-subtitle/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **One subtitle engine for everything.** Find, score, download, normalize, sync,
@@ -138,15 +138,15 @@ standard), and [docs/PROTOCOL.md](docs/PROTOCOL.md) for the integration contract
 **Prebuilt binaries (no compiling)** — each GitHub Release ships `ost`, `ostd`,
 `libopensubtitle` (+ header), and the mpv plugin for Linux (x86_64/aarch64,
 static musl), macOS (x86_64/arm64), and Windows (x86_64). Download the archive for
-your platform from [Releases](https://github.com/0xfell/open-subtitle/releases),
+your platform from [Releases](https://github.com/grok-insider/open-subtitle/releases),
 extract, and put `ost`/`ostd` on your `PATH`.
 
 **Nix / NixOS** — the flake builds `ost` + `ostd` + the library, with prebuilt
-closures on the `0xfell` cachix cache (so you don't compile):
+closures on the `grok-insider` cachix cache (so you don't compile):
 
 ```nix
 # flake.nix inputs
-inputs.open-subtitle.url = "github:0xfell/open-subtitle";
+inputs.open-subtitle.url = "github:grok-insider/open-subtitle";
 
 # Home Manager
 imports = [ inputs.open-subtitle.homeManagerModules.default ];
@@ -157,7 +157,7 @@ programs.open-subtitle = {
 };
 ```
 
-Or ad hoc: `nix run github:0xfell/open-subtitle -- get "Interstellar 2014" -l en`.
+Or ad hoc: `nix run github:grok-insider/open-subtitle -- get "Interstellar 2014" -l en`.
 
 **From source** — `cargo build --release` (Rust ≥ 1.80); binaries at
 `target/release/{ost,ostd}`.
@@ -203,7 +203,7 @@ crates/
 
 ## License
 
-[MIT](LICENSE) © 2026 0xfell.
+[MIT](LICENSE) © 2026 Grok Insider.
 
 This is a client for services you bring your own account to (where applicable)
 and for public subtitle indexes. You are responsible for complying with the laws

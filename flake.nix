@@ -5,15 +5,15 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  # Prebuilt closures are pushed to the 0xfell cachix cache by CI, so consumers
+  # Prebuilt closures are pushed to the grok-insider cachix cache by CI, so consumers
   # never compile open-subtitle. (Reuses the same cache as open-media.)
   nixConfig = {
     extra-substituters = [
-      "https://0xfell.cachix.org"
+      "https://grok-insider.cachix.org"
       "https://nix-community.cachix.org"
     ];
     extra-trusted-public-keys = [
-      "0xfell.cachix.org-1:0VSPKbe/Eilt+WTT/0faSQeQnnhDOH7PxkUvoRtvPPo="
+      "grok-insider.cachix.org-1:ZxLVOxJ1CjdY3vQl1I99qCtwNZwIU4+/QwqSvntB/5w="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     ];
   };
@@ -66,7 +66,7 @@
 
             meta = {
               description = "Keyless, agnostic subtitle engine: ost (CLI) + ostd (daemon) + libopensubtitle";
-              homepage = "https://github.com/0xfell/open-subtitle";
+              homepage = "https://github.com/grok-insider/open-subtitle";
               license = lib.licenses.mit;
               mainProgram = "ost";
               platforms = systems;
