@@ -887,6 +887,7 @@ dependencies = [
  "os-config",
  "os-core",
  "os-engine",
+ "serde",
  "serde_json",
  "tiny_http",
  "tokio",

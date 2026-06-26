@@ -4,6 +4,7 @@
 //! use-cases (`identify`, `search`, `download_best`, `fallback`), guarded by the
 //! [`Throttler`]. Depends only on `os-core`.
 
+pub mod library;
 pub mod throttle;
 
 pub use throttle::Throttler;
