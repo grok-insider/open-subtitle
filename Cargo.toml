@@ -25,16 +25,16 @@ repository = "https://github.com/grok-insider/open-subtitle"
 rust-version = "1.80"
 
 [workspace.dependencies]
-os-core = { path = "crates/os-core" }
-os-config = { path = "crates/os-config" }
-os-identify = { path = "crates/os-identify" }
-os-providers = { path = "crates/os-providers" }
-os-process = { path = "crates/os-process" }
-os-engine = { path = "crates/os-engine" }
-os-sync = { path = "crates/os-sync" }
-os-translate = { path = "crates/os-translate" }
-os-transcribe = { path = "crates/os-transcribe" }
-os-compose = { path = "crates/os-compose" }
+os-core = { path = "crates/os-core", version = "0.1.0" }
+os-config = { path = "crates/os-config", version = "0.1.0" }
+os-identify = { path = "crates/os-identify", version = "0.1.0" }
+os-providers = { path = "crates/os-providers", version = "0.1.0" }
+os-process = { path = "crates/os-process", version = "0.1.0" }
+os-engine = { path = "crates/os-engine", version = "0.1.0" }
+os-sync = { path = "crates/os-sync", version = "0.1.0" }
+os-translate = { path = "crates/os-translate", version = "0.1.0" }
+os-transcribe = { path = "crates/os-transcribe", version = "0.1.0" }
+os-compose = { path = "crates/os-compose", version = "0.1.0" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
