@@ -828,7 +828,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "os-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "os-compose"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "os-config",
  "os-core",
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "os-config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "directories",
  "os-core",
@@ -870,7 +870,7 @@ dependencies = [
 
 [[package]]
 name = "os-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "regex",
@@ -880,7 +880,7 @@ dependencies = [
 
 [[package]]
 name = "os-daemon"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "os-compose",
@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "os-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "os-ffi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "os-compose",
  "os-config",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "os-identify"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "os-core",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "os-process"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chardetng",
  "encoding_rs",
@@ -942,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "os-providers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "os-core",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "os-sync"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "os-core",
@@ -963,7 +963,7 @@ dependencies = [
 
 [[package]]
 name = "os-transcribe"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "os-core",
@@ -972,7 +972,7 @@ dependencies = [
 
 [[package]]
 name = "os-translate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "os-core",
