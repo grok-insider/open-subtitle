@@ -134,14 +134,14 @@ impl Default for Providers {
             ..Default::default()
         };
         Providers {
-            opensubtitles_org: on(), // keyless — the only provider active by default
-            podnapisi: on(),         // reserved (no adapter wired yet)
-            subdl: on(),             // enabled, but needs an api_key to activate (see os-compose)
+            opensubtitles_org: on(),  // keyless — the only provider active by default
+            podnapisi: on(),          // reserved (no adapter wired yet)
+            subdl: on(),              // enabled, but needs an api_key to activate (see os-compose)
             opensubtitles_com: off(), // needs a key/login
-            jimaku: off(),           // anime; needs a free key
-            gestdown: on(),          // reserved (no adapter wired yet)
-            tvsubtitles: on(),       // reserved (no adapter wired yet)
-            animetosho: on(),        // reserved (no adapter wired yet)
+            jimaku: off(),            // anime; needs a free key
+            gestdown: on(),           // reserved (no adapter wired yet)
+            tvsubtitles: on(),        // reserved (no adapter wired yet)
+            animetosho: on(),         // reserved (no adapter wired yet)
         }
     }
 }
