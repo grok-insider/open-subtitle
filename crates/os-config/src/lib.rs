@@ -103,8 +103,13 @@ impl AutomationConfig {
     }
 }
 
-/// Per-provider toggles + options. Keyless providers default ON; key/login ones
-/// default OFF (the keyless-by-default invariant).
+/// Per-provider toggles + options. The keyless source (OpenSubtitles.org) is the
+/// only provider active out of the box; key/login providers ship enabled-but-inert
+/// until you add a key, or disabled (the keyless-by-default invariant).
+///
+/// Note: `podnapisi`, `gestdown`, `tvsubtitles`, and `animetosho` are reserved
+/// toggles for providers on the roadmap — no adapter is wired in `os-compose` yet,
+/// so flipping them has no effect today.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Providers {
@@ -129,14 +134,14 @@ impl Default for Providers {
             ..Default::default()
         };
         Providers {
-            opensubtitles_org: on(),
-            podnapisi: on(),
-            subdl: on(), // anonymous works (~300/day per IP); key optional
-            opensubtitles_com: off(),
-            jimaku: off(), // needs a free key
-            gestdown: on(),
-            tvsubtitles: on(),
-            animetosho: on(),
+            opensubtitles_org: on(), // keyless — the only provider active by default
+            podnapisi: on(),         // reserved (no adapter wired yet)
+            subdl: on(),             // enabled, but needs an api_key to activate (see os-compose)
+            opensubtitles_com: off(), // needs a key/login
+            jimaku: off(),           // anime; needs a free key
+            gestdown: on(),          // reserved (no adapter wired yet)
+            tvsubtitles: on(),       // reserved (no adapter wired yet)
+            animetosho: on(),        // reserved (no adapter wired yet)
         }
     }
 }
