@@ -4,37 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## 0.2.0
 
-### Added
-- **`v0.4` flagship — wanted list + scheduled re-search + library scan.** When an
-  import (or a scan) can't find a subtitle yet — anime fansubs and slow releases
-  often lag — `ostd` now records the gap and re-searches it on a timer until it's
-  found, the long-stated automation flagship.
-  - `os-engine::library` — pure, tested local-filesystem helpers shared by every
-    surface: recursive video walk + per-language sidecar detection
-    (`walk_videos`, `missing_languages`). Reads the language from the first
-    sidecar tag, so `Movie.en.hi.srt` is English (not Hindi) and untagged
-    `Movie.srt` matches nothing.
-  - `os-daemon::wanted` — a persistent wanted list backed by a single JSON file
-    (`<cache>/wanted.json`; no database dependency), with tested dedupe/merge,
-    `due` (interval + attempt-cap) selection, and `record_result` pruning.
-  - `ostd` background **scheduler** that re-searches due items every
-    `automation.recheck_interval_secs`, dropping each language as it's delivered
-    and the item once it's complete.
-  - `ostd` endpoints: **`POST /scan`** (walk a library, fetch missing subs, queue
-    the rest), **`GET /wanted`**, **`POST /wanted/run`** (force a pass now),
-    **`DELETE /wanted`** / **`POST /wanted/clear`** — all also under `/v1`.
-  - Sonarr/Radarr **webhook imports that come up empty now enqueue** the missing
-    languages automatically (when `automation.track_wanted`).
-  - **`ost scan <dir>`** CLI command (one-shot bulk fetch; `--dry-run`,
-    `--no-recursive`, `-l`, `--hi`, `--json`).
-  - `os-config` `[automation]` gains `track_wanted`, `recheck_interval_secs`
-    (default 6h), and `max_attempts` (default unlimited).
-  - Refactored the import/fetch/write path into one shared `fetch_for_target`
-    helper so webhooks, scans, and re-searches behave identically.
-  - Documented in `docs/PROTOCOL.md` §5b/§5c. Verified end-to-end against a live
-    `ostd` (scan → wanted → run → clear) and via 15 new unit tests.
+- Added a `wanted list` feature that persistently tracks missing subtitles and automatically re-searches them on a configurable timer until found.
+- Added `ost scan <dir>` CLI command for one-shot bulk subtitle downloads over a library directory tree.
+- Added new daemon endpoints: `POST /scan`, `GET /wanted`, `POST /wanted/run`, `POST /wanted/clear`, `DELETE /wanted`.
+- Added `automation` configuration section with `track_wanted`, `recheck_interval_secs`, and `max_attempts` settings.
+- Added library scan helpers for recursive video walking and per-language sidecar detection.
+- Changed import responses to include an additive `wanted` field when subtitles are not immediately found.
+- Changed webhook imports (Sonarr/Radarr) to auto-enqueue missing languages when `automation.track_wanted` is enabled.
 
 ## [0.1.0](https://github.com/grok-insider/open-subtitle/releases/tag/v0.1.0) - 2026-06-25
 
@@ -162,5 +140,3 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `docs/ROADMAP.md` — version milestones + feature matrix vs. surveyed tools.
   - `AGENTS.md` — contributor/agent guide, module layout, dependency rule.
   - `CONTRIBUTING.md`, `future-features.md`, `LICENSE` (MIT), `.gitignore`.
-
-[Unreleased]: https://github.com/grok-insider/open-subtitle/commits/master

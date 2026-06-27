@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["Grok Insider <admin@grokinsider.net>"]
@@ -25,16 +25,16 @@ repository = "https://github.com/grok-insider/open-subtitle"
 rust-version = "1.80"
 
 [workspace.dependencies]
-os-core = { path = "crates/os-core", version = "0.1.0" }
-os-config = { path = "crates/os-config", version = "0.1.0" }
-os-identify = { path = "crates/os-identify", version = "0.1.0" }
-os-providers = { path = "crates/os-providers", version = "0.1.0" }
-os-process = { path = "crates/os-process", version = "0.1.0" }
-os-engine = { path = "crates/os-engine", version = "0.1.0" }
-os-sync = { path = "crates/os-sync", version = "0.1.0" }
-os-translate = { path = "crates/os-translate", version = "0.1.0" }
-os-transcribe = { path = "crates/os-transcribe", version = "0.1.0" }
-os-compose = { path = "crates/os-compose", version = "0.1.0" }
+os-core = { path = "crates/os-core", version = "0.2.0" }
+os-config = { path = "crates/os-config", version = "0.2.0" }
+os-identify = { path = "crates/os-identify", version = "0.2.0" }
+os-providers = { path = "crates/os-providers", version = "0.2.0" }
+os-process = { path = "crates/os-process", version = "0.2.0" }
+os-engine = { path = "crates/os-engine", version = "0.2.0" }
+os-sync = { path = "crates/os-sync", version = "0.2.0" }
+os-translate = { path = "crates/os-translate", version = "0.2.0" }
+os-transcribe = { path = "crates/os-transcribe", version = "0.2.0" }
+os-compose = { path = "crates/os-compose", version = "0.2.0" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
