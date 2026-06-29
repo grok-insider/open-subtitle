@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle identification: filename parsing, hashing (OSDB), refiners"
+readme = "../../README.md"
 
 # Published as `open-subtitle-identify`; imported as `os_identify`.
 [lib]

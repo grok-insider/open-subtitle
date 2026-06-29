@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle core: domain model, ports, and pure scoring/matching (no I/O)"
+readme = "../../README.md"
 
 # Published to crates.io as `open-subtitle-core` (the generic `os-core` name is
 # taken by an unrelated crate). The library is still imported as `os_core`, so no

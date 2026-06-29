@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 authors = ["Grok Insider <admin@grokinsider.net>"]
@@ -30,16 +30,16 @@ rust-version = "1.80"
 # and each crate's `[lib] name` stays `os_*`, so every `use os_core::…` and
 # `{ workspace = true }` reference is unchanged — only the published package name
 # (what cargo/release-plz resolve from the registry) differs.
-os-core = { package = "open-subtitle-core", path = "crates/os-core", version = "0.2.0" }
-os-config = { package = "open-subtitle-config", path = "crates/os-config", version = "0.2.0" }
-os-identify = { package = "open-subtitle-identify", path = "crates/os-identify", version = "0.2.0" }
-os-providers = { package = "open-subtitle-providers", path = "crates/os-providers", version = "0.2.0" }
-os-process = { package = "open-subtitle-process", path = "crates/os-process", version = "0.2.0" }
-os-engine = { package = "open-subtitle-engine", path = "crates/os-engine", version = "0.2.0" }
-os-sync = { package = "open-subtitle-sync", path = "crates/os-sync", version = "0.2.0" }
-os-translate = { package = "open-subtitle-translate", path = "crates/os-translate", version = "0.2.0" }
-os-transcribe = { package = "open-subtitle-transcribe", path = "crates/os-transcribe", version = "0.2.0" }
-os-compose = { package = "open-subtitle-compose", path = "crates/os-compose", version = "0.2.0" }
+os-core = { package = "open-subtitle-core", path = "crates/os-core", version = "0.2.1" }
+os-config = { package = "open-subtitle-config", path = "crates/os-config", version = "0.2.1" }
+os-identify = { package = "open-subtitle-identify", path = "crates/os-identify", version = "0.2.1" }
+os-providers = { package = "open-subtitle-providers", path = "crates/os-providers", version = "0.2.1" }
+os-process = { package = "open-subtitle-process", path = "crates/os-process", version = "0.2.1" }
+os-engine = { package = "open-subtitle-engine", path = "crates/os-engine", version = "0.2.1" }
+os-sync = { package = "open-subtitle-sync", path = "crates/os-sync", version = "0.2.1" }
+os-translate = { package = "open-subtitle-translate", path = "crates/os-translate", version = "0.2.1" }
+os-transcribe = { package = "open-subtitle-transcribe", path = "crates/os-transcribe", version = "0.2.1" }
+os-compose = { package = "open-subtitle-compose", path = "crates/os-compose", version = "0.2.1" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

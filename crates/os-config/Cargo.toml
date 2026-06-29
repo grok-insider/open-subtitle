@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle configuration: schema, load/save, XDG paths, secrets policy"
+readme = "../../README.md"
 
 # Published as `open-subtitle-config`; imported as `os_config` (lib name decoupled
 # from the package name — see the root Cargo.toml workspace-deps note).
