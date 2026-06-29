@@ -1,11 +1,15 @@
 [package]
-name = "os-process"
+name = "open-subtitle-process"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle post-processing: decompress, encoding->UTF-8, format, HI removal"
+
+# Published as `open-subtitle-process`; imported as `os_process`.
+[lib]
+name = "os_process"
 
 [dependencies]
 os-core = { workspace = true }

@@ -1,11 +1,15 @@
 [package]
-name = "os-translate"
+name = "open-subtitle-translate"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle translation adapters (LibreTranslate / local, LLM optional)"
+
+# Published as `open-subtitle-translate`; imported as `os_translate`.
+[lib]
+name = "os_translate"
 
 [dependencies]
 os-core = { workspace = true }
