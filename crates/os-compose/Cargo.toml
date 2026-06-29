@@ -1,11 +1,15 @@
 [package]
-name = "os-compose"
+name = "open-subtitle-compose"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle composition root: build an Engine from Config (shared by frontends)"
+
+# Published as `open-subtitle-compose`; imported as `os_compose`.
+[lib]
+name = "os_compose"
 
 [dependencies]
 os-core = { workspace = true }

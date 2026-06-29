@@ -821,6 +821,115 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "open-subtitle-compose"
+version = "0.2.0"
+dependencies = [
+ "open-subtitle-config",
+ "open-subtitle-core",
+ "open-subtitle-engine",
+ "open-subtitle-identify",
+ "open-subtitle-process",
+ "open-subtitle-providers",
+ "open-subtitle-sync",
+ "open-subtitle-transcribe",
+ "open-subtitle-translate",
+]
+
+[[package]]
+name = "open-subtitle-config"
+version = "0.2.0"
+dependencies = [
+ "directories",
+ "open-subtitle-core",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "open-subtitle-core"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "regex",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "open-subtitle-engine"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "open-subtitle-core",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "open-subtitle-identify"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "open-subtitle-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "open-subtitle-process"
+version = "0.2.0"
+dependencies = [
+ "chardetng",
+ "encoding_rs",
+ "flate2",
+ "open-subtitle-core",
+ "zip",
+]
+
+[[package]]
+name = "open-subtitle-providers"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "open-subtitle-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "urlencoding",
+]
+
+[[package]]
+name = "open-subtitle-sync"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "open-subtitle-core",
+ "tokio",
+]
+
+[[package]]
+name = "open-subtitle-transcribe"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "open-subtitle-core",
+ "tokio",
+]
+
+[[package]]
+name = "open-subtitle-translate"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "open-subtitle-core",
+ "reqwest",
+ "serde_json",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -832,10 +941,10 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
- "os-compose",
- "os-config",
- "os-core",
- "os-engine",
+ "open-subtitle-compose",
+ "open-subtitle-config",
+ "open-subtitle-core",
+ "open-subtitle-engine",
  "serde_json",
  "tokio",
  "toml",
@@ -844,49 +953,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "os-compose"
-version = "0.2.0"
-dependencies = [
- "os-config",
- "os-core",
- "os-engine",
- "os-identify",
- "os-process",
- "os-providers",
- "os-sync",
- "os-transcribe",
- "os-translate",
-]
-
-[[package]]
-name = "os-config"
-version = "0.2.0"
-dependencies = [
- "directories",
- "os-core",
- "serde",
- "toml",
-]
-
-[[package]]
-name = "os-core"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "regex",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "os-daemon"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "os-compose",
- "os-config",
- "os-core",
- "os-engine",
+ "open-subtitle-compose",
+ "open-subtitle-config",
+ "open-subtitle-core",
+ "open-subtitle-engine",
  "serde",
  "serde_json",
  "tiny_http",
@@ -895,89 +969,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "os-engine"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "futures",
- "os-core",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "os-ffi"
 version = "0.2.0"
 dependencies = [
- "os-compose",
- "os-config",
- "os-core",
- "os-engine",
+ "open-subtitle-compose",
+ "open-subtitle-config",
+ "open-subtitle-core",
+ "open-subtitle-engine",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "os-identify"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "os-core",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "os-process"
-version = "0.2.0"
-dependencies = [
- "chardetng",
- "encoding_rs",
- "flate2",
- "os-core",
- "zip",
-]
-
-[[package]]
-name = "os-providers"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "os-core",
- "reqwest",
- "serde",
- "serde_json",
- "urlencoding",
-]
-
-[[package]]
-name = "os-sync"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "os-core",
- "tokio",
-]
-
-[[package]]
-name = "os-transcribe"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "os-core",
- "tokio",
-]
-
-[[package]]
-name = "os-translate"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "os-core",
- "reqwest",
- "serde_json",
 ]
 
 [[package]]

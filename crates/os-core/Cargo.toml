@@ -1,11 +1,17 @@
 [package]
-name = "os-core"
+name = "open-subtitle-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle core: domain model, ports, and pure scoring/matching (no I/O)"
+
+# Published to crates.io as `open-subtitle-core` (the generic `os-core` name is
+# taken by an unrelated crate). The library is still imported as `os_core`, so no
+# source churn: the lib name is decoupled from the package name here.
+[lib]
+name = "os_core"
 
 [dependencies]
 serde = { workspace = true }

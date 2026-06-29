@@ -1,11 +1,16 @@
 [package]
-name = "os-config"
+name = "open-subtitle-config"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle configuration: schema, load/save, XDG paths, secrets policy"
+
+# Published as `open-subtitle-config`; imported as `os_config` (lib name decoupled
+# from the package name — see the root Cargo.toml workspace-deps note).
+[lib]
+name = "os_config"
 
 [dependencies]
 os-core = { workspace = true }

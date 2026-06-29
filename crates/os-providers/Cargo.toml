@@ -1,11 +1,15 @@
 [package]
-name = "os-providers"
+name = "open-subtitle-providers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle provider adapters (OpenSubtitles.org/.com, SubDL, …)"
+
+# Published as `open-subtitle-providers`; imported as `os_providers`.
+[lib]
+name = "os_providers"
 
 [dependencies]
 os-core = { workspace = true }
