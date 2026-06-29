@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle engine: use-cases, the Engine composition, and the throttler"
+readme = "../../README.md"
 
 # Published as `open-subtitle-engine`; imported as `os_engine`.
 [lib]

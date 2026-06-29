@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle speech-to-text fallback (Whisper)"
+readme = "../../README.md"
 
 # Published as `open-subtitle-transcribe`; imported as `os_transcribe`.
 [lib]
