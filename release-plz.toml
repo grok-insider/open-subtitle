@@ -36,6 +36,55 @@ release = false
 # Make the release PR easy to spot/filter.
 pr_labels = ["release"]
 
+# --- Published library crates -------------------------------------------------
+# These 10 libraries ARE published to crates.io (as `open-subtitle-*`) so that
+# downstream consumers — notably open-media's `open-media-subs` — can depend on
+# them by version from the registry (required for `cargo package` change
+# detection). They override the workspace `publish = false`. They still emit no
+# tag/release of their own (the single `vX.Y.Z` tag comes from os-cli); only the
+# crates.io upload is enabled here. The 4 frontends (os-cli/os-daemon/os-ffi/
+# os-mpv) stay unpublished.
+[[package]]
+name = "open-subtitle-core"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-config"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-identify"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-providers"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-process"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-sync"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-translate"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-transcribe"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-engine"
+publish = true
+git_only = false
+[[package]]
+name = "open-subtitle-compose"
+publish = true
+git_only = false
+
 [[package]]
 name = "os-cli"
 release = true
