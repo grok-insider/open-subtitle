@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.2
+
+- Added README to all 10 published library crates on crates.io so their pages show the project overview
+- Published library crates to crates.io under the `open-subtitle-*` namespace, allowing downstream consumers to depend on the engine by version from the registry
+- Rewrote the project README to accurately describe the shipped v0.2.0 engine, replacing pre-implementation status with current usage instructions and corrected provider documentation
+
 ## 0.2.0
 
 - Added a `wanted list` feature that persistently tracks missing subtitles and automatically re-searches them on a configurable timer until found.

@@ -822,7 +822,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "open-subtitle-compose"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "open-subtitle-config",
  "open-subtitle-core",
@@ -837,7 +837,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-config"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "directories",
  "open-subtitle-core",
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "regex",
@@ -857,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-engine"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "futures",
@@ -868,7 +868,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-identify"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "open-subtitle-core",
@@ -880,7 +880,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-process"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chardetng",
  "encoding_rs",
@@ -891,7 +891,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-providers"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "open-subtitle-core",
@@ -903,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-sync"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "open-subtitle-core",
@@ -912,7 +912,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-transcribe"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "open-subtitle-core",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "open-subtitle-translate"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "open-subtitle-core",
@@ -937,7 +937,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "os-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "os-daemon"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "open-subtitle-compose",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "os-ffi"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "open-subtitle-compose",
  "open-subtitle-config",
