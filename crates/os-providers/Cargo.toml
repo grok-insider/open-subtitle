@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle provider adapters (OpenSubtitles.org/.com, SubDL, …)"
+readme = "../../README.md"
 
 # Published as `open-subtitle-providers`; imported as `os_providers`.
 [lib]

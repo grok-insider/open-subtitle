@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle composition root: build an Engine from Config (shared by frontends)"
+readme = "../../README.md"
 
 # Published as `open-subtitle-compose`; imported as `os_compose`.
 [lib]

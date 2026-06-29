@@ -6,6 +6,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "open-subtitle sync adapters (ffsubsync, alass)"
+readme = "../../README.md"
 
 # Published as `open-subtitle-sync`; imported as `os_sync`.
 [lib]
