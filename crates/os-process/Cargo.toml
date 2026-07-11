@@ -8,7 +8,7 @@ repository.workspace = true
 description = "open-subtitle post-processing: decompress, encoding->UTF-8, format, HI removal"
 readme = "../../README.md"
 
-# Published as `open-subtitle-process`; imported as `os_process`.
+# Package name `open-subtitle-process`; imported as `os_process`. Not published to crates.io.
 [lib]
 name = "os_process"
 
