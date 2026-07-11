@@ -8,7 +8,7 @@ repository.workspace = true
 description = "open-subtitle translation adapters (LibreTranslate / local, LLM optional)"
 readme = "../../README.md"
 
-# Published as `open-subtitle-translate`; imported as `os_translate`.
+# Package name `open-subtitle-translate`; imported as `os_translate`. Not published to crates.io.
 [lib]
 name = "os_translate"
 

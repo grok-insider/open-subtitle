@@ -8,7 +8,7 @@ repository.workspace = true
 description = "open-subtitle engine: use-cases, the Engine composition, and the throttler"
 readme = "../../README.md"
 
-# Published as `open-subtitle-engine`; imported as `os_engine`.
+# Package name `open-subtitle-engine`; imported as `os_engine`. Not published to crates.io.
 [lib]
 name = "os_engine"
 

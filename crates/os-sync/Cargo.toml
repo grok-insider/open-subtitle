@@ -8,7 +8,7 @@ repository.workspace = true
 description = "open-subtitle sync adapters (ffsubsync, alass)"
 readme = "../../README.md"
 
-# Published as `open-subtitle-sync`; imported as `os_sync`.
+# Package name `open-subtitle-sync`; imported as `os_sync`. Not published to crates.io.
 [lib]
 name = "os_sync"
 
