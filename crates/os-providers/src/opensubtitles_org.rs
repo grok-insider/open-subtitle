@@ -23,18 +23,13 @@ impl OpenSubtitlesOrg {
         OpenSubtitlesOrg { client }
     }
 
-    /// The `sublanguageid-...` segment for the requested languages.
-    fn lang_seg(&self, q: &Query) -> Option<(String, String)> {
-        if q.languages.is_empty() {
-            return None;
-        }
-        let langs = q
-            .languages
-            .iter()
-            .map(|l| l.alpha3b())
-            .collect::<Vec<_>>()
-            .join(",");
-        Some(("sublanguageid".into(), langs))
+    /// One `sublanguageid-…` segment for a single language code.
+    ///
+    /// The rest.opensubtitles.org endpoint rejects multi-value parameters
+    /// (`sublanguageid-eng,spa` → HTTP 400 "multiple values per parameter are
+    /// not supported"), so each language is searched as its own request.
+    fn lang_seg_one(lang: &Language) -> (String, String) {
+        ("sublanguageid".into(), lang.alpha3b().to_string())
     }
 
     /// Build the alphabetical `key-value/...` path from segments.
@@ -49,27 +44,23 @@ impl OpenSubtitlesOrg {
         format!("{BASE}/{path}")
     }
 
-    /// Up to two search URLs: a hash search (when a hash is known) and a
-    /// metadata/text search. The endpoint ANDs all segments, so a non-matching
-    /// hash must not be mixed with the text query — we run them separately and
-    /// merge the results.
+    /// Search URLs for hash / imdb / text queries, fanned out **per language**.
+    ///
+    /// The endpoint ANDs all segments, so a non-matching hash must not be mixed
+    /// with the text query — we run them separately and merge the results. Same
+    /// for imdbid vs query. Languages are also separate (API rejects multi-lang
+    /// `sublanguageid`).
     fn build_urls(&self, q: &Query) -> Vec<String> {
         let media = &q.media;
-        let lang = self.lang_seg(q);
-        let mut urls = Vec::new();
 
-        // Hash search.
-        if let Some(h) = media.hashes.get("osdb") {
-            let mut segs: Vec<(String, String)> = Vec::new();
-            if let Some(l) = &lang {
-                segs.push(l.clone());
-            }
-            segs.push(("moviehash".into(), h.clone()));
-            if let Some(size) = media.size {
-                segs.push(("moviebytesize".into(), size.to_string()));
-            }
-            urls.push(self.build_url(&segs));
-        }
+        // `None` = no language filter (empty request list).
+        let langs: Vec<Option<&Language>> = if q.languages.is_empty() {
+            vec![None]
+        } else {
+            q.languages.iter().map(Some).collect()
+        };
+
+        let mut urls = Vec::new();
 
         // Episodic season/episode segments appended to a metadata search.
         let ep_segs = |segs: &mut Vec<(String, String)>| {
@@ -83,30 +74,45 @@ impl OpenSubtitlesOrg {
             }
         };
 
-        // IMDb-id search (ALONE — opensubtitles.org returns nothing when imdbid
-        // and query are combined, even though each works on its own).
-        if let Some(imdb) = &media.ids.imdb {
-            let digits: String = imdb.chars().filter(|c| c.is_ascii_digit()).collect();
-            if !digits.is_empty() {
-                let mut segs: Vec<(String, String)> = Vec::new();
-                if let Some(l) = &lang {
-                    segs.push(l.clone());
+        for lang in langs {
+            let push_lang = |segs: &mut Vec<(String, String)>| {
+                if let Some(l) = lang {
+                    segs.push(Self::lang_seg_one(l));
                 }
-                segs.push(("imdbid".into(), digits));
+            };
+
+            // Hash search.
+            if let Some(h) = media.hashes.get("osdb") {
+                let mut segs: Vec<(String, String)> = Vec::new();
+                push_lang(&mut segs);
+                segs.push(("moviehash".into(), h.clone()));
+                if let Some(size) = media.size {
+                    segs.push(("moviebytesize".into(), size.to_string()));
+                }
+                urls.push(self.build_url(&segs));
+            }
+
+            // IMDb-id search (ALONE — opensubtitles.org returns nothing when
+            // imdbid and query are combined, even though each works on its own).
+            if let Some(imdb) = &media.ids.imdb {
+                let digits: String = imdb.chars().filter(|c| c.is_ascii_digit()).collect();
+                if !digits.is_empty() {
+                    let mut segs: Vec<(String, String)> = Vec::new();
+                    push_lang(&mut segs);
+                    segs.push(("imdbid".into(), digits));
+                    ep_segs(&mut segs);
+                    urls.push(self.build_url(&segs));
+                }
+            }
+
+            // Text-query search (separate from the imdbid search).
+            if !media.title.is_empty() {
+                let mut segs: Vec<(String, String)> = Vec::new();
+                push_lang(&mut segs);
+                segs.push(("query".into(), media.title.to_lowercase()));
                 ep_segs(&mut segs);
                 urls.push(self.build_url(&segs));
             }
-        }
-
-        // Text-query search (separate from the imdbid search).
-        if !media.title.is_empty() {
-            let mut segs: Vec<(String, String)> = Vec::new();
-            if let Some(l) = &lang {
-                segs.push(l.clone());
-            }
-            segs.push(("query".into(), media.title.to_lowercase()));
-            ep_segs(&mut segs);
-            urls.push(self.build_url(&segs));
         }
 
         urls
@@ -301,21 +307,27 @@ mod tests {
             ],
         };
         let urls = p.build_urls(&q);
-        // Two separate searches: one hash, one text — never combined (the endpoint
-        // ANDs segments, so a non-matching hash must not suppress the text query).
-        assert_eq!(urls.len(), 2);
-        let hash_url = urls
+        // Per language × (hash + text) = 4 URLs. Languages are NOT comma-joined
+        // (API returns 400 for multi-value sublanguageid).
+        assert_eq!(urls.len(), 4);
+        let hash_urls: Vec<_> = urls
             .iter()
-            .find(|u| u.contains("moviehash-abc123"))
-            .unwrap();
-        let text_url = urls.iter().find(|u| u.contains("query-")).unwrap();
-        assert!(!hash_url.contains("query-"));
-        assert!(text_url.contains("episode-2"));
-        assert!(text_url.contains("season-1"));
-        assert!(
-            hash_url.contains("sublanguageid-eng%2Cspa")
-                || hash_url.contains("sublanguageid-eng,spa")
-        );
+            .filter(|u| u.contains("moviehash-abc123"))
+            .collect();
+        let text_urls: Vec<_> = urls.iter().filter(|u| u.contains("query-")).collect();
+        assert_eq!(hash_urls.len(), 2);
+        assert_eq!(text_urls.len(), 2);
+        for u in &hash_urls {
+            assert!(!u.contains("query-"));
+        }
+        for u in &text_urls {
+            assert!(u.contains("episode-2"));
+            assert!(u.contains("season-1"));
+        }
+        let joined = urls.join("\n");
+        assert!(joined.contains("sublanguageid-eng"));
+        assert!(joined.contains("sublanguageid-spa"));
+        assert!(!joined.contains("eng%2Cspa") && !joined.contains("eng,spa"));
     }
 
     #[test]

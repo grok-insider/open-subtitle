@@ -862,13 +862,49 @@ fn parse_query(q: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for pair in q.split('&').filter(|s| !s.is_empty()) {
         let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
-        let k = urlencoding::decode(k)
-            .map(|c| c.into_owned())
-            .unwrap_or_else(|_| k.to_string());
-        let v = urlencoding::decode(v)
-            .map(|c| c.into_owned())
-            .unwrap_or_else(|_| v.to_string());
+        // application/x-www-form-urlencoded uses '+' for space; percent-decode
+        // alone leaves literal '+' (breaks curl --data-urlencode and many clients).
+        let k = decode_query_component(k);
+        let v = decode_query_component(v);
         map.insert(k, v);
     }
     map
+}
+
+fn decode_query_component(s: &str) -> String {
+    let plus_as_space = s.replace('+', " ");
+    urlencoding::decode(&plus_as_space)
+        .map(|c| c.into_owned())
+        .unwrap_or(plus_as_space)
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+
+    #[test]
+    fn parse_query_plus_is_space() {
+        let m = parse_query("input=Interstellar+2014&langs=en");
+        assert_eq!(
+            m.get("input").map(String::as_str),
+            Some("Interstellar 2014")
+        );
+        assert_eq!(m.get("langs").map(String::as_str), Some("en"));
+    }
+
+    #[test]
+    fn parse_query_percent_encoding() {
+        let m = parse_query("input=Interstellar%202014");
+        assert_eq!(
+            m.get("input").map(String::as_str),
+            Some("Interstellar 2014")
+        );
+    }
+
+    #[test]
+    fn parse_query_literal_plus_via_percent() {
+        // C++ must be encoded as C%2B%2B so '+' is not treated as space.
+        let m = parse_query("input=C%2B%2B");
+        assert_eq!(m.get("input").map(String::as_str), Some("C++"));
+    }
 }
