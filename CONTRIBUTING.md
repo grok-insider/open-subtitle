@@ -66,3 +66,7 @@ built **on top of** `ostd`/FFI, not inside core.
 Be respectful and constructive. Prioritize technical accuracy over consensus;
 disagree with reasons. We optimize for correctness and the user's autonomy
 (keyless, local-first, no lock-in).
+
+## Branch policy
+
+Open feature/fix PRs against **`dev`**, not `master`. When a batch is ready, open a single **`dev` → `master`** integration PR.

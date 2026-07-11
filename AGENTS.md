@@ -211,3 +211,12 @@ deferred into `future-features.md`.
 - Prefer fixing the contract in `os-core` over working around it in an adapter.
 - Keep the four "agnostic" axes intact (app / platform / media / language) with
   every change.
+
+## Branch model (Model A)
+
+- Human feature/fix/docs PRs target **`dev`**, not `master`.
+- **`master`:** released line. Protected; required checks include CI + **`only dev into master`**.
+- **`dev`:** integration branch. Land work here first.
+- **Guard:** `.github/workflows/guard-master.yml` allowlists `dev` and release-bot heads.
+- **Flow:** `feat/*` → PR into `dev` → batch via `dev`→`master` PR → release on merge to `master`.
+- Org QC: `~/dev/opensource/docs/comparison.md`.
