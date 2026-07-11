@@ -1,14 +1,15 @@
 name: CI
 
 on:
-  push:
-    branches: [main, master]
-    tags: ["v*"]
   pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -17,6 +18,10 @@ jobs:
   # workspace is pure-Rust (flate2/miniz, zip, encoding_rs, tiny_http).
   rust:
     name: fmt + clippy + test
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || github.event_name == 'push'
+      || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +40,13 @@ jobs:
   # PRs never publish (no secrets on fork PRs).
   build:
     name: nix build + cachix push (x86_64-linux)
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'pull_request'
+          && github.event.action == 'closed'
+          && github.event.pull_request.merged == true
+          && github.event.pull_request.base.ref == 'master')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
