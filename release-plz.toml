@@ -37,7 +37,7 @@ release = false
 pr_labels = ["release"]
 
 # --- Published library crates -------------------------------------------------
-# These 10 libraries ARE published to crates.io (as `open-subtitle-*`) so that
+# Libraries are NOT published to crates.io on this line (as `open-subtitle-*`) —
 # downstream consumers — notably open-media's `open-media-subs` — can depend on
 # them by version from the registry (required for `cargo package` change
 # detection). They override the workspace `publish = false`. They still emit no
@@ -46,43 +46,43 @@ pr_labels = ["release"]
 # os-mpv) stay unpublished.
 [[package]]
 name = "open-subtitle-core"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-config"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-identify"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-providers"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-process"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-sync"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-translate"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-transcribe"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-engine"
-publish = true
+publish = false
 git_only = false
 [[package]]
 name = "open-subtitle-compose"
-publish = true
+publish = false
 git_only = false
 
 [[package]]
