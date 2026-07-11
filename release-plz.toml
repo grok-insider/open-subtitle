@@ -29,6 +29,7 @@ release_always = true
 # Internal libraries + two bins + one cdylib, not a published API surface: skip
 # cargo-semver-checks (it only applies to crates.io libraries anyway).
 semver_check = false
+features_always_increment_minor = false
 # Opt-in model: don't process any crate by default. `os-cli` opts in below; the
 # other twelve crates ride the shared workspace version with no tag/release of
 # their own — there is only one version field, so they all move in lockstep.
