@@ -8,7 +8,7 @@ repository.workspace = true
 description = "open-subtitle speech-to-text fallback (Whisper)"
 readme = "../../README.md"
 
-# Published as `open-subtitle-transcribe`; imported as `os_transcribe`.
+# Package name `open-subtitle-transcribe`; imported as `os_transcribe`. Not published to crates.io.
 [lib]
 name = "os_transcribe"
 
